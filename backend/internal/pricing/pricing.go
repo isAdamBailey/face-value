@@ -10,7 +10,9 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// Comp is a single comparable listing returned by a Source.
+// Comp is a single comparable listing returned by a Source. Excluded is not
+// set by a Source — Summarize sets it when a comp falls outside the IQR
+// fences. Outliers are stored and shown dimmed, never discarded.
 type Comp struct {
 	ExternalID    string
 	Title         string
@@ -21,6 +23,7 @@ type Comp struct {
 	ItemURL       string
 	ThumbnailURL  string
 	SellerCountry string
+	Excluded      bool
 }
 
 // Query describes a search for comparable listings.
