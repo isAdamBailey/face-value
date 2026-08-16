@@ -81,6 +81,13 @@ func (s *Service) Start(searchID uuid.UUID, imageBytes []byte, mime string) {
 	go s.run(searchID, imageBytes, mime)
 }
 
+// Rerun re-prices an existing search with an edited query, without
+// touching the image or the vision identification. Like Start, it runs
+// detached and returns immediately.
+func (s *Service) Rerun(searchID uuid.UUID, query string) {
+	go s.rerun(searchID, query)
+}
+
 // MarkStaleFailed marks any search stuck in a non-terminal status for more
 // than 5 minutes as failed. Call once at boot to clean up rows orphaned by
 // a restart mid-pipeline.
@@ -114,6 +121,32 @@ func (s *Service) run(searchID uuid.UUID, imageBytes []byte, mime string) {
 	}
 
 	comps, err := s.price(ctx, ident.SearchQuery)
+	if err != nil {
+		s.markFailed(searchID, fmt.Sprintf("price: %v", err))
+		return
+	}
+
+	if err := s.completeWithComps(ctx, searchID, comps); err != nil {
+		s.markFailed(searchID, fmt.Sprintf("save results: %v", err))
+		return
+	}
+}
+
+func (s *Service) rerun(searchID uuid.UUID, query string) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("appraisal: panic in rerun for %s: %v", searchID, r)
+			s.markFailed(searchID, fmt.Sprintf("internal error: %v", r))
+		}
+	}()
+
+	s.sem <- struct{}{}
+	defer func() { <-s.sem }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), overallTimeout)
+	defer cancel()
+
+	comps, err := s.price(ctx, query)
 	if err != nil {
 		s.markFailed(searchID, fmt.Sprintf("price: %v", err))
 		return
@@ -183,6 +216,13 @@ func (s *Service) completeWithComps(ctx context.Context, searchID uuid.UUID, com
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	qtx := db.New(tx)
+
+	// Clear any comps from a previous run (rerun replaces, it doesn't
+	// append) — a no-op on a search's first run, since there's nothing to
+	// delete yet.
+	if err := qtx.DeleteCompsBySearch(ctx, db.ToUUID(searchID)); err != nil {
+		return fmt.Errorf("clear existing comps: %w", err)
+	}
 
 	var currency *string
 	if len(comps) > 0 {

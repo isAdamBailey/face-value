@@ -56,6 +56,10 @@ func (h *Handler) Register(r chi.Router) {
 			r.With(h.requireCSRF).Post("/auth/logout", h.logout)
 
 			r.With(h.requireCSRF).Post("/searches", h.createSearch)
+			r.Get("/searches", h.listSearches)
+			r.Get("/searches/{id}", h.getSearch)
+			r.With(h.requireCSRF).Post("/searches/{id}/rerun", h.rerunSearch)
+			r.With(h.requireCSRF).Delete("/searches/{id}", h.deleteSearch)
 		})
 	})
 }

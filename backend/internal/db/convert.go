@@ -57,3 +57,13 @@ func ToNumericFromFloat64(f float64) (pgtype.Numeric, error) {
 	}
 	return n, nil
 }
+
+// FromNumeric converts a pgtype.Numeric to a decimal.Decimal, returning
+// zero for an invalid (NULL) value. Used at API response boundaries so
+// prices serialize as exact decimal strings, never JSON floats.
+func FromNumeric(n pgtype.Numeric) decimal.Decimal {
+	if !n.Valid || n.Int == nil {
+		return decimal.Zero
+	}
+	return decimal.NewFromBigInt(n.Int, n.Exp)
+}
