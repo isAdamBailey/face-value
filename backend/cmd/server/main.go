@@ -10,9 +10,12 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
+	"github.com/isAdamBailey/face-value/backend/internal/auth"
 	"github.com/isAdamBailey/face-value/backend/internal/config"
 	"github.com/isAdamBailey/face-value/backend/internal/db"
+	"github.com/isAdamBailey/face-value/backend/internal/email"
 	"github.com/isAdamBailey/face-value/backend/internal/httpapi"
+	"github.com/isAdamBailey/face-value/backend/internal/users"
 )
 
 func main() {
@@ -33,6 +36,20 @@ func main() {
 	}
 	defer pool.Close()
 
+	queries := db.New(pool)
+	userRepo := users.NewPostgresRepository(queries)
+
+	if err := userRepo.SyncAllowlist(ctx, cfg.AllowedEmails); err != nil {
+		log.Fatalf("sync allowlist: %v", err)
+	}
+
+	sender, err := email.New(cfg.Email)
+	if err != nil {
+		log.Fatalf("email: %v", err)
+	}
+
+	authSvc := auth.NewService(queries, userRepo, sender, cfg.CookieSigningSecret, cfg.CookieSecure, cfg.AppBaseURL)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -44,7 +61,7 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	httpapi.NewHandler().Register(r)
+	httpapi.NewHandler(authSvc, userRepo).Register(r)
 
 	log.Printf("listening on :%s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {

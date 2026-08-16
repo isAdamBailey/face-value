@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/isAdamBailey/face-value/backend/internal/email"
 )
 
 // Config holds all runtime configuration for the server.
@@ -16,6 +18,8 @@ type Config struct {
 	AppBaseURL          string
 	CookieSigningSecret []byte
 	CookieSecure        bool
+	AllowedEmails       []string
+	Email               email.Config
 
 	HFToken      string
 	HFVisionModel string
@@ -61,6 +65,11 @@ func Load() (Config, error) {
 		AppBaseURL:          envOrDefault("APP_BASE_URL", "http://localhost:3000"),
 		CookieSigningSecret: []byte(require("COOKIE_SIGNING_SECRET")),
 		CookieSecure:        os.Getenv("COOKIE_SECURE") == "true",
+		AllowedEmails:       splitAndTrim(require("ALLOWED_EMAILS")),
+		Email: email.Config{
+			Provider:  os.Getenv("EMAIL_PROVIDER"),
+			FromEmail: require("MAGIC_LINK_FROM_EMAIL"),
+		},
 
 		HFToken:       require("HF_TOKEN"),
 		HFVisionModel: envOrDefault("HF_VISION_MODEL", "Qwen/Qwen2.5-VL-72B-Instruct"),
@@ -84,6 +93,22 @@ func Load() (Config, error) {
 	cfg.EBayCompLimit = envOrDefaultInt("EBAY_COMP_LIMIT", 50)
 	cfg.MaxUploadBytes = envOrDefaultInt64("MAX_UPLOAD_BYTES", 10*1024*1024)
 	cfg.MaxConcurrentAppraisals = envOrDefaultInt("MAX_CONCURRENT_APPRAISALS", 4)
+
+	switch cfg.Email.Provider {
+	case "ses":
+		region := require("SES_REGION")
+		cfg.Email.SMTPHost = envOrDefault("SMTP_HOST", fmt.Sprintf("email-smtp.%s.amazonaws.com", region))
+		cfg.Email.SMTPPort = envOrDefault("SMTP_PORT", "587")
+		cfg.Email.SMTPUsername = require("SMTP_USERNAME")
+		cfg.Email.SMTPPassword = require("SMTP_PASSWORD")
+	case "smtp":
+		cfg.Email.SMTPHost = require("SMTP_HOST")
+		cfg.Email.SMTPPort = require("SMTP_PORT")
+		cfg.Email.SMTPUsername = os.Getenv("SMTP_USERNAME")
+		cfg.Email.SMTPPassword = os.Getenv("SMTP_PASSWORD")
+	default:
+		return Config{}, fmt.Errorf(`EMAIL_PROVIDER must be "smtp" or "ses", got %q`, cfg.Email.Provider)
+	}
 
 	if len(missing) > 0 {
 		return Config{}, fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
@@ -121,4 +146,18 @@ func envOrDefaultInt64(name string, def int64) int64 {
 		return def
 	}
 	return n
+}
+
+func splitAndTrim(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
