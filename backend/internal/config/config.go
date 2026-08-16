@@ -37,6 +37,7 @@ type Config struct {
 	S3AccessKeyID     string
 	S3SecretAccessKey string
 	S3Endpoint        string
+	S3PublicEndpoint  string
 	S3ForcePathStyle  bool
 	S3PresignTTL      string
 
@@ -86,6 +87,7 @@ func Load() (Config, error) {
 		S3AccessKeyID:     require("S3_ACCESS_KEY_ID"),
 		S3SecretAccessKey: require("S3_SECRET_ACCESS_KEY"),
 		S3Endpoint:        os.Getenv("S3_ENDPOINT"),
+		S3PublicEndpoint:  os.Getenv("S3_PUBLIC_ENDPOINT"),
 		S3ForcePathStyle:  os.Getenv("S3_FORCE_PATH_STYLE") == "true",
 		S3PresignTTL:      envOrDefault("S3_PRESIGN_TTL", "15m"),
 	}

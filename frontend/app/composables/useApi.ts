@@ -15,7 +15,8 @@ export function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promis
   const method = options.method ?? 'GET'
 
   const headers: Record<string, string> = {}
-  if (options.body !== undefined) {
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
+  if (options.body !== undefined && !isFormData) {
     headers['Content-Type'] = 'application/json'
   }
   if (method !== 'GET') {

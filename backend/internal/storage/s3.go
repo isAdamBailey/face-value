@@ -22,9 +22,16 @@ type S3Config struct {
 	Region          string
 	AccessKeyID     string
 	SecretAccessKey string
-	// Endpoint overrides the S3 endpoint, for MinIO in local dev. Leave
-	// empty in production.
+	// Endpoint overrides the S3 endpoint used for PutObject/GetObject/
+	// DeleteObject, for MinIO in local dev. Leave empty in production.
 	Endpoint string
+	// PublicEndpoint overrides the host baked into presigned URLs only.
+	// In docker-compose, the backend reaches MinIO at the "minio" service
+	// hostname, but a presigned URL is fetched by the browser on the host
+	// machine, which can't resolve that name — so it needs "localhost"
+	// instead. Defaults to Endpoint when empty; irrelevant in production,
+	// where Endpoint itself is empty (real S3).
+	PublicEndpoint string
 	// ForcePathStyle is required for MinIO (bucket-in-path rather than
 	// bucket-as-subdomain). Must be false in production.
 	ForcePathStyle bool
@@ -57,9 +64,24 @@ func NewS3Store(ctx context.Context, cfg S3Config) (*S3Store, error) {
 		o.UsePathStyle = cfg.ForcePathStyle
 	})
 
+	publicEndpoint := cfg.PublicEndpoint
+	if publicEndpoint == "" {
+		publicEndpoint = cfg.Endpoint
+	}
+
+	presignTarget := client
+	if publicEndpoint != cfg.Endpoint {
+		presignTarget = s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+			if publicEndpoint != "" {
+				o.BaseEndpoint = aws.String(publicEndpoint)
+			}
+			o.UsePathStyle = cfg.ForcePathStyle
+		})
+	}
+
 	return &S3Store{
 		client:        client,
-		presignClient: s3.NewPresignClient(client),
+		presignClient: s3.NewPresignClient(presignTarget),
 		bucket:        cfg.Bucket,
 		presignTTL:    cfg.PresignTTL,
 	}, nil

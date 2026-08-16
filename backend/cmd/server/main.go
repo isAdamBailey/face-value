@@ -66,6 +66,7 @@ func main() {
 		AccessKeyID:     cfg.S3AccessKeyID,
 		SecretAccessKey: cfg.S3SecretAccessKey,
 		Endpoint:        cfg.S3Endpoint,
+		PublicEndpoint:  cfg.S3PublicEndpoint,
 		ForcePathStyle:  cfg.S3ForcePathStyle,
 		PresignTTL:      presignTTL,
 	})
