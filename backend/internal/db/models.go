@@ -14,6 +14,22 @@ type AllowedUser struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type Comp struct {
+	ID            int64              `json:"id"`
+	SearchID      pgtype.UUID        `json:"search_id"`
+	ExternalID    string             `json:"external_id"`
+	Title         string             `json:"title"`
+	Price         pgtype.Numeric     `json:"price"`
+	Currency      string             `json:"currency"`
+	Condition     *string            `json:"condition"`
+	BuyingOption  *string            `json:"buying_option"`
+	ItemUrl       *string            `json:"item_url"`
+	ThumbnailUrl  *string            `json:"thumbnail_url"`
+	SellerCountry *string            `json:"seller_country"`
+	Excluded      bool               `json:"excluded"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 type MagicLinkToken struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserEmail string             `json:"user_email"`
@@ -21,6 +37,35 @@ type MagicLinkToken struct {
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	UsedAt    pgtype.Timestamptz `json:"used_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type Search struct {
+	ID               pgtype.UUID        `json:"id"`
+	UserEmail        string             `json:"user_email"`
+	Status           string             `json:"status"`
+	ErrorMessage     *string            `json:"error_message"`
+	ImageKey         string             `json:"image_key"`
+	ImageWidth       *int32             `json:"image_width"`
+	ImageHeight      *int32             `json:"image_height"`
+	Title            *string            `json:"title"`
+	Brand            *string            `json:"brand"`
+	Model            *string            `json:"model"`
+	Category         *string            `json:"category"`
+	ConditionNotes   *string            `json:"condition_notes"`
+	SearchQuery      *string            `json:"search_query"`
+	VisionModel      *string            `json:"vision_model"`
+	VisionRaw        []byte             `json:"vision_raw"`
+	Confidence       pgtype.Numeric     `json:"confidence"`
+	PriceSource      *string            `json:"price_source"`
+	Currency         *string            `json:"currency"`
+	CompCount        *int32             `json:"comp_count"`
+	PriceMean        pgtype.Numeric     `json:"price_mean"`
+	PriceMedian      pgtype.Numeric     `json:"price_median"`
+	PriceMin         pgtype.Numeric     `json:"price_min"`
+	PriceMax         pgtype.Numeric     `json:"price_max"`
+	PriceTrimmedMean pgtype.Numeric     `json:"price_trimmed_mean"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
 }
 
 type Session struct {

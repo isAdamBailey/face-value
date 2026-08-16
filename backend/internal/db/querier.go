@@ -12,19 +12,31 @@ import (
 
 type Querier interface {
 	CountRecentMagicLinkTokensForEmail(ctx context.Context, userEmail string) (int64, error)
+	CreateComp(ctx context.Context, arg CreateCompParams) (Comp, error)
 	CreateMagicLinkToken(ctx context.Context, arg CreateMagicLinkTokenParams) (MagicLinkToken, error)
+	CreateSearch(ctx context.Context, arg CreateSearchParams) (Search, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateUser(ctx context.Context, email string) (User, error)
 	DeleteAllowedUserByEmail(ctx context.Context, email string) error
+	DeleteCompsBySearch(ctx context.Context, searchID pgtype.UUID) error
+	DeleteSearch(ctx context.Context, id pgtype.UUID) error
 	DeleteSession(ctx context.Context, id pgtype.UUID) error
+	GetSearch(ctx context.Context, id pgtype.UUID) (Search, error)
 	GetSession(ctx context.Context, id pgtype.UUID) (Session, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetValidMagicLinkToken(ctx context.Context, tokenHash string) (MagicLinkToken, error)
 	IsEmailAllowed(ctx context.Context, email string) (bool, error)
 	ListAllowedEmails(ctx context.Context) ([]string, error)
+	ListCompsBySearch(ctx context.Context, searchID pgtype.UUID) ([]Comp, error)
+	ListSearchesForUser(ctx context.Context, arg ListSearchesForUserParams) ([]Search, error)
 	MarkMagicLinkTokenUsed(ctx context.Context, id pgtype.UUID) error
+	MarkStaleSearchesFailed(ctx context.Context) error
+	SetSearchComplete(ctx context.Context, arg SetSearchCompleteParams) (Search, error)
+	SetSearchFailed(ctx context.Context, arg SetSearchFailedParams) (Search, error)
+	SetSearchIdentification(ctx context.Context, arg SetSearchIdentificationParams) (Search, error)
 	UpdateLastLoginAt(ctx context.Context, id pgtype.UUID) error
+	UpdateSearchQuery(ctx context.Context, arg UpdateSearchQueryParams) (Search, error)
 	UpsertAllowedUser(ctx context.Context, email string) error
 }
 

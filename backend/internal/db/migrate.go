@@ -16,14 +16,9 @@ import (
 
 // Migrate applies all pending up migrations to the database at dsn.
 func Migrate(dsn string) error {
-	source, err := iofs.New(migrations.FS, ".")
+	m, err := newMigrator(dsn)
 	if err != nil {
-		return fmt.Errorf("load migrations: %w", err)
-	}
-
-	m, err := migrate.NewWithSourceInstance("iofs", source, dsn)
-	if err != nil {
-		return fmt.Errorf("init migrator: %w", err)
+		return err
 	}
 	defer func() { _, _ = m.Close() }()
 
@@ -32,4 +27,33 @@ func Migrate(dsn string) error {
 	}
 
 	return nil
+}
+
+// MigrateDown rolls back all applied migrations against the database at dsn.
+func MigrateDown(dsn string) error {
+	m, err := newMigrator(dsn)
+	if err != nil {
+		return err
+	}
+	defer func() { _, _ = m.Close() }()
+
+	if err := m.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("run migrations: %w", err)
+	}
+
+	return nil
+}
+
+func newMigrator(dsn string) (*migrate.Migrate, error) {
+	source, err := iofs.New(migrations.FS, ".")
+	if err != nil {
+		return nil, fmt.Errorf("load migrations: %w", err)
+	}
+
+	m, err := migrate.NewWithSourceInstance("iofs", source, dsn)
+	if err != nil {
+		return nil, fmt.Errorf("init migrator: %w", err)
+	}
+
+	return m, nil
 }
