@@ -21,9 +21,9 @@ type Config struct {
 	AllowedEmails       []string
 	Email               email.Config
 
-	HFToken      string
+	HFToken       string
 	HFVisionModel string
-	HFAPIBase    string
+	HFAPIBase     string
 
 	EBayClientID     string
 	EBayClientSecret string
@@ -40,7 +40,7 @@ type Config struct {
 	S3ForcePathStyle  bool
 	S3PresignTTL      string
 
-	MaxUploadBytes        int64
+	MaxUploadBytes          int64
 	MaxConcurrentAppraisals int
 }
 
