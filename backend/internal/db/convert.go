@@ -1,10 +1,12 @@
 package db
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
 )
 
 // ToUUID converts a uuid.UUID to the pgtype representation used by
@@ -31,4 +33,27 @@ func FromTimestamptz(t pgtype.Timestamptz) *time.Time {
 		return nil
 	}
 	return &t.Time
+}
+
+// ToNumericFromDecimal converts a decimal.Decimal to the pgtype
+// representation used by sqlc-generated code, via its exact string
+// representation — never through float64.
+func ToNumericFromDecimal(d decimal.Decimal) (pgtype.Numeric, error) {
+	var n pgtype.Numeric
+	if err := n.Scan(d.String()); err != nil {
+		return pgtype.Numeric{}, err
+	}
+	return n, nil
+}
+
+// ToNumericFromFloat64 converts a float64 to the pgtype representation used
+// by sqlc-generated code. Only for non-financial values (e.g. a vision
+// model's self-reported confidence score) — prices must go through
+// ToNumericFromDecimal instead.
+func ToNumericFromFloat64(f float64) (pgtype.Numeric, error) {
+	var n pgtype.Numeric
+	if err := n.Scan(strconv.FormatFloat(f, 'f', -1, 64)); err != nil {
+		return pgtype.Numeric{}, err
+	}
+	return n, nil
 }

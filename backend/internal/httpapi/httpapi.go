@@ -7,7 +7,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/isAdamBailey/face-value/backend/internal/appraisal"
 	"github.com/isAdamBailey/face-value/backend/internal/auth"
+	"github.com/isAdamBailey/face-value/backend/internal/db"
+	"github.com/isAdamBailey/face-value/backend/internal/storage"
 	"github.com/isAdamBailey/face-value/backend/internal/users"
 )
 
@@ -17,15 +20,23 @@ const magicLinkRateLimit = 5
 
 // Handler holds the dependencies needed to serve the API.
 type Handler struct {
-	auth  *auth.Service
-	users users.Repository
+	auth           *auth.Service
+	users          users.Repository
+	queries        db.Querier
+	imageStore     storage.ImageStore
+	appraisal      *appraisal.Service
+	maxUploadBytes int64
 }
 
 // NewHandler constructs a Handler.
-func NewHandler(authSvc *auth.Service, userRepo users.Repository) *Handler {
+func NewHandler(authSvc *auth.Service, userRepo users.Repository, queries db.Querier, imageStore storage.ImageStore, appraisalSvc *appraisal.Service, maxUploadBytes int64) *Handler {
 	return &Handler{
-		auth:  authSvc,
-		users: userRepo,
+		auth:           authSvc,
+		users:          userRepo,
+		queries:        queries,
+		imageStore:     imageStore,
+		appraisal:      appraisalSvc,
+		maxUploadBytes: maxUploadBytes,
 	}
 }
 
@@ -43,6 +54,8 @@ func (h *Handler) Register(r chi.Router) {
 			r.Use(h.requireAuth)
 			r.Get("/me", h.me)
 			r.With(h.requireCSRF).Post("/auth/logout", h.logout)
+
+			r.With(h.requireCSRF).Post("/searches", h.createSearch)
 		})
 	})
 }
