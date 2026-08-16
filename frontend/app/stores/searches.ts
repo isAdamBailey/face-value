@@ -1,3 +1,16 @@
+export interface Comp {
+  external_id: string
+  title: string
+  price: string
+  currency: string
+  condition?: string
+  buying_option?: string
+  item_url?: string
+  thumbnail_url?: string
+  seller_country?: string
+  excluded: boolean
+}
+
 export interface Search {
   id: string
   status: string
@@ -6,10 +19,22 @@ export interface Search {
   title?: string
   brand?: string
   model?: string
-  comp_count?: number
+  category?: string
+  condition_notes?: string
+  search_query?: string
+  confidence?: string
+  low_confidence?: boolean
+  price_source?: string
   currency?: string
+  comp_count?: number
+  price_mean?: string
+  price_median?: string
+  price_min?: string
+  price_max?: string
   price_trimmed_mean?: string
+  comps?: Comp[]
   created_at: string
+  completed_at?: string
   /** Client-only: set when polling hit MAX_POLL_ATTEMPTS without a terminal status. */
   still_working?: boolean
 }
@@ -115,6 +140,25 @@ export const useSearchesStore = defineStore('searches', () => {
     poll(id)
   }
 
+  /** fetchDetail does a single, unbounded fetch of a search's full detail
+   * (including comps) and throws on failure — unlike poll(), which
+   * swallows errors to keep retrying, the detail page needs to
+   * distinguish "doesn't exist / not yours" from a transient blip. */
+  async function fetchDetail(id: string): Promise<Search> {
+    const detail = await apiFetch<Search>(`/api/searches/${id}`)
+    upsertItem(detail)
+    return detail
+  }
+
+  /** rerun re-prices a search with an edited query, then resumes polling. */
+  async function rerun(id: string, searchQuery: string) {
+    await apiFetch(`/api/searches/${id}/rerun`, {
+      method: 'POST',
+      body: { search_query: searchQuery }
+    })
+    poll(id)
+  }
+
   async function loadInitial() {
     loading.value = true
     try {
@@ -209,6 +253,8 @@ export const useSearchesStore = defineStore('searches', () => {
     create,
     poll,
     retry,
-    remove
+    remove,
+    fetchDetail,
+    rerun
   }
 })
