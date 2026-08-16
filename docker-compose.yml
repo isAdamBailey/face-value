@@ -27,6 +27,10 @@ services:
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-minioadmin}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-minioadmin}
+      # Dev-only key so MinIO honors SSE-S3 (AES256) PutObject requests the
+      # same way real S3 does natively — MinIO requires a KMS key for this,
+      # real S3 doesn't need customer involvement at all.
+      MINIO_KMS_SECRET_KEY: minio-dev-key:0+G9PnTbqh3fugNW2g31tGf/I9D33H7IA7X3CodcfH0=
     ports:
       - "9000:9000" # S3 API
       - "9001:9001" # console
