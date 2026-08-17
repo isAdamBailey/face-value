@@ -23,7 +23,7 @@ fi
 
 cd "$ROOT/backend"
 go build -o server ./cmd/server
-DATABASE_URL="$DATABASE_URL" go run ./cmd/migrate up
+go run ./cmd/migrate up
 cd "$ROOT"
 
 cd "$ROOT/frontend"
