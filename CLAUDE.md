@@ -24,9 +24,8 @@ Modeled on `isAdamBailey/massa` — same repo layout, same Go/Nuxt split, same
 Forge deployment shape. Auth (magic link + email allowlist) is ported from
 massa; don't rewrite it.
 
-The full build plan is `PLAN.md` at the repo root — read it before making
-architectural decisions. The build order and per-step checklists live as
-GitHub issues (#1 tracking, sub-issues for each step).
+The build order and per-step checklists live as GitHub issues (#1 tracking,
+sub-issues for each step).
 
 ## Commands
 
@@ -101,14 +100,15 @@ source. Define/extend interfaces before implementations.
 
 `searches` (one row per appraisal) and `comps` (eBay listings returned for a
 search, with outliers flagged `excluded` rather than discarded). See
-`PLAN.md` §3 for the full schema and rationale.
+`backend/migrations/000003_appraisals.up.sql` for the full schema.
 
 ### Pipeline
 
 Upload returns `202` immediately; vision → pricing → stats runs in a detached
 goroutine (`internal/appraisal`), bounded by a semaphore
 (`MAX_CONCURRENT_APPRAISALS`). The frontend polls `GET /api/searches/{id}`
-for status. See `PLAN.md` §4.6 for timeouts and panic-recovery requirements.
+for status. See `backend/internal/appraisal/appraisal.go` for timeouts and
+panic-recovery.
 
 ### Money
 
@@ -116,6 +116,6 @@ Prices are `NUMERIC`/`decimal.Decimal`, never `float64` or `strconv.ParseFloat`.
 
 ## Conventions
 
-See `PLAN.md`'s naming table — the app is **Face Value**; the repo, Go
-module, DB role, S3 bucket, PM2 process, and domain all use specific forms
-that are not interchangeable.
+The app is **Face Value**; the repo, Go module, DB role, S3 bucket, PM2
+process, and domain all use specific forms that are not interchangeable —
+see `docs/DEPLOY.md` for the concrete names in use.
