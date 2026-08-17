@@ -22,15 +22,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-neutral-950 px-4 text-neutral-100">
+  <div class="flex min-h-screen items-center justify-center bg-ground px-4 text-ink">
     <div class="w-full max-w-sm space-y-8 text-center">
-      <h1 class="text-2xl font-semibold">
+      <h1 class="font-display text-2xl font-bold">
         Face Value
       </h1>
 
       <p
         v-if="status === 'verifying'"
-        class="text-sm text-neutral-300"
+        class="text-sm text-ink-soft"
       >
         Signing you in…
       </p>
@@ -39,12 +39,12 @@ onMounted(async () => {
         v-else
         class="space-y-4"
       >
-        <p class="text-sm text-red-400">
+        <p class="text-sm text-fail">
           This sign-in link is invalid or has expired.
         </p>
         <NuxtLink
           to="/login"
-          class="inline-block rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-neutral-950 transition-colors hover:bg-emerald-400"
+          class="inline-block rounded-full bg-terracotta-ink px-4 py-2 font-display text-sm font-semibold text-white transition-transform hover:-translate-y-0.5"
         >
           Back to sign in
         </NuxtLink>

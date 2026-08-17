@@ -16,13 +16,13 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-neutral-950 px-4 text-neutral-100">
+  <div class="flex min-h-screen items-center justify-center bg-ground px-4 text-ink">
     <div class="w-full max-w-sm space-y-8">
       <div class="space-y-2 text-center">
-        <h1 class="text-2xl font-semibold">
+        <h1 class="font-display text-2xl font-bold">
           Face Value
         </h1>
-        <p class="text-sm text-neutral-400">
+        <p class="text-sm text-ink-soft">
           Sign in with your email
         </p>
       </div>
@@ -35,7 +35,7 @@ async function onSubmit() {
         <div>
           <label
             for="email"
-            class="block text-sm text-neutral-400"
+            class="block text-sm text-ink-soft"
           >Email</label>
           <input
             id="email"
@@ -44,21 +44,21 @@ async function onSubmit() {
             required
             placeholder="you@example.com"
             autocomplete="email"
-            class="mt-1 w-full rounded-md bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500"
+            class="mt-1 w-full rounded-md bg-ground-deep px-3 py-2 text-sm text-ink ring-1 ring-line-strong"
           >
         </div>
 
         <button
           type="submit"
           :disabled="status === 'sending'"
-          class="w-full rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-neutral-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
+          class="w-full rounded-full bg-terracotta-ink px-4 py-2 font-display text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
         >
           {{ status === 'sending' ? 'Sending…' : 'Send sign-in link' }}
         </button>
 
         <p
           v-if="status === 'error'"
-          class="text-sm text-red-400"
+          class="text-sm text-fail"
         >
           Something went wrong. Please try again.
         </p>
@@ -66,7 +66,7 @@ async function onSubmit() {
 
       <p
         v-else
-        class="text-center text-sm text-neutral-300"
+        class="text-center text-sm text-ink-soft"
       >
         If that email is allowed to sign in, a link has been sent. Check your
         inbox and click the link to continue.

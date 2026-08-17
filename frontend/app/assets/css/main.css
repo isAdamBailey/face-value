@@ -1,1 +1,106 @@
 @import "tailwindcss";
+
+/* Self-hosted per craft-floor: no CDN, no system-font substitution for the
+   display/readout voices. Both files are variable fonts (single file, full
+   weight range) — see frontend/public/fonts. */
+@font-face {
+  font-family: "Baloo 2";
+  font-style: normal;
+  font-weight: 500 800;
+  font-display: swap;
+  src: url("/fonts/baloo2-variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-variable.woff2") format("woff2");
+}
+
+/*
+  DESIGN TOKENS — Collector's Ledger (world), applied to your searches
+  Every search is a specimen card in a personal, ranked list, not a row in
+  a marketplace grid. Ground is a cool light gray; each card carries its own
+  committed pastel field (a color strategy of "full palette", not accents
+  on neutral); the price reads as a lit instrument readout, the one cold,
+  precise note against all the cool gray.
+
+  Registered under @theme so every token below is a real Tailwind utility
+  (bg-ground, text-ink-soft, ring-line-strong, font-display, …) — no
+  inline styles needed in templates.
+*/
+@theme {
+  --color-ground: #eef0f2;
+  --color-ground-deep: #e1e5e9;
+  --color-ink: #1e2226;
+  --color-ink-soft: #565f68;
+  --color-line: #d3d8dd;
+  --color-line-strong: #a7b0b8;
+
+  --color-terracotta-bg: #f0d3c0;
+  --color-terracotta-ink: #96432a;
+  --color-sage-bg: #dbe6cd;
+  --color-sage-ink: #45602f;
+  --color-ochre-bg: #f2e0a8;
+  --color-ochre-ink: #8c6512;
+  --color-slate-bg: #d6e1e6;
+  --color-slate-ink: #2e5c6e;
+  --color-plum-bg: #e9d6e3;
+  --color-plum-ink: #75335e;
+
+  --color-readout-bg: #211b14;
+  --color-readout-glow: #ffb454;
+  --color-readout-glow-dim: #8a5f30;
+
+  --color-tag: #c9a267;
+  --color-tag-ink: #40331d;
+  --color-fail: #963c2b;
+  --color-fail-bg: #f0d9cf;
+
+  --font-display: "Baloo 2", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+html {
+  background-color: var(--color-ground);
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-ground);
+  color: var(--color-ink);
+}
+
+/* Browser surfaces belong to the design too. */
+::selection {
+  background: var(--color-ochre-ink);
+  color: var(--color-ground);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-terracotta-ink);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+* {
+  scrollbar-color: var(--color-line-strong) var(--color-ground-deep);
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-ground-deep);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: 999px;
+  border: 2px solid var(--color-ground-deep);
+}

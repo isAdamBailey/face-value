@@ -54,28 +54,36 @@ function openFilePicker() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-neutral-950 text-neutral-100">
+  <div class="min-h-screen bg-ground text-ink">
     <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <h1 class="text-2xl font-semibold">
-        Face Value
-      </h1>
-      <p class="mt-1 text-sm text-neutral-400">
-        Upload a photo. See the average asking price across current listings.
-      </p>
+      <header class="flex items-baseline justify-between border-b-2 border-line-strong pb-4">
+        <div>
+          <h1 class="font-display text-3xl font-bold tracking-tight text-ink">
+            Face Value
+          </h1>
+          <p class="mt-1 text-sm text-ink-soft">
+            Your searches — average asking price across current listings,
+            never a sale.
+          </p>
+        </div>
+        <p class="hidden shrink-0 text-right text-xs tracking-widest text-ink-soft uppercase sm:block">
+          Est. searches<br>No. {{ String(searches.items.length).padStart(3, '0') }}
+        </p>
+      </header>
 
       <div
-        class="mt-6 flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors"
-        :class="isDragging ? 'border-emerald-400 bg-emerald-400/5' : 'border-neutral-700'"
+        class="mt-6 flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors"
+        :class="isDragging ? 'border-terracotta-ink bg-terracotta-bg' : 'border-line-strong bg-ground-deep'"
         @dragover.prevent="isDragging = true"
         @dragleave.prevent="isDragging = false"
         @drop.prevent="onDrop"
       >
-        <p class="text-sm text-neutral-300">
-          Drag a photo here, or
+        <p class="text-sm text-ink-soft">
+          Drop a photo to add a find, or
         </p>
         <button
           type="button"
-          class="rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-neutral-950 transition-colors hover:bg-emerald-400"
+          class="rounded-full bg-terracotta-ink px-5 py-2 font-display text-sm font-semibold text-white transition-transform hover:-translate-y-0.5"
           @click="openFilePicker"
         >
           Choose a photo
@@ -88,23 +96,23 @@ function openFilePicker() {
           class="sr-only"
           @change="onFileInputChange"
         >
-        <p v-if="uploadError" class="text-sm text-red-400">
+        <p v-if="uploadError" class="text-sm text-fail">
           {{ uploadError }}
         </p>
       </div>
 
-      <div v-if="searches.loading && !searches.initialized" class="mt-10 text-center text-sm text-neutral-500">
-        Loading…
+      <div v-if="searches.loading && !searches.initialized" class="mt-10 text-center text-sm text-ink-soft">
+        Loading your searches…
       </div>
 
       <div
         v-else-if="searches.initialized && searches.items.length === 0"
-        class="mt-10 rounded-xl border border-neutral-800 px-6 py-16 text-center"
+        class="mt-10 rounded-2xl border border-line bg-ground-deep px-6 py-16 text-center"
       >
-        <p class="text-lg font-medium text-neutral-200">
-          Nothing appraised yet
+        <p class="font-display text-lg font-semibold text-ink">
+          No searches yet
         </p>
-        <p class="mx-auto mt-2 max-w-md text-sm text-neutral-400">
+        <p class="mx-auto mt-2 max-w-md text-sm text-ink-soft">
           Upload a photo of something you own and a vision model will identify it,
           then look up current listings on eBay to estimate an average asking
           price. Not a sale, not an appraisal — just a starting point.
@@ -113,7 +121,7 @@ function openFilePicker() {
 
       <div
         v-else
-        class="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4"
+        class="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4"
       >
         <SearchCard
           v-for="search in searches.items"
@@ -124,7 +132,7 @@ function openFilePicker() {
       </div>
 
       <div ref="sentinelRef" class="h-1" />
-      <div v-if="searches.loadingMore" class="py-6 text-center text-sm text-neutral-500">
+      <div v-if="searches.loadingMore" class="py-6 text-center text-sm text-ink-soft">
         Loading more…
       </div>
     </main>
