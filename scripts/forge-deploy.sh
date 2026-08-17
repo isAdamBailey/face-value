@@ -12,24 +12,36 @@ ROOT="$PWD"
 
 export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
 
-# .env is a Forge "shared path", symlinked into every release directory
-# automatically (Forge does this by default for zero-downtime sites). Fail
-# loudly and immediately if it's missing rather than silently proceeding —
-# every later failure this could cause (e.g. cmd/migrate's "DATABASE_URL is
-# required") is far more confusing to debug from the deploy log alone.
-if [[ ! -f "$ROOT/.env" ]]; then
-  echo "ERROR: $ROOT/.env not found. Forge should symlink it here as a" >&2
-  echo "shared path before running this script — check the site's" >&2
-  echo "Deployments settings and confirm .env is listed there, and that" >&2
-  echo "the deploy log shows a 'Linking environment file' step." >&2
+# .env is a Forge "shared path", symlinked in automatically for
+# zero-downtime sites. Since the site's Web Directory is "frontend" (see
+# docs/DEPLOY.md), Forge links it relative to that, not the repo root —
+# check both rather than assume. Fail loudly and immediately if neither
+# exists rather than silently proceeding: every later failure this could
+# cause (e.g. cmd/migrate's "DATABASE_URL is required") is far more
+# confusing to debug from the deploy log alone.
+ENV_CANDIDATES=("$ROOT/frontend/.env" "$ROOT/.env")
+ENV_FILE=""
+for candidate in "${ENV_CANDIDATES[@]}"; do
+  if [[ -f "$candidate" ]]; then
+    ENV_FILE="$candidate"
+    break
+  fi
+done
+
+if [[ -z "$ENV_FILE" ]]; then
+  echo "ERROR: no .env found at any of: ${ENV_CANDIDATES[*]}" >&2
+  echo "Check the site's Deployments settings and confirm .env is listed" >&2
+  echo "as a shared path, and that the deploy log shows a 'Linking" >&2
+  echo "environment file' step." >&2
   echo "Contents of $ROOT:" >&2
   ls -la "$ROOT" >&2
   exit 1
 fi
 
+echo "Using env file: $ENV_FILE"
 set -a
 # shellcheck disable=SC1091
-source "$ROOT/.env"
+source "$ENV_FILE"
 set +a
 
 cd "$ROOT/backend"
