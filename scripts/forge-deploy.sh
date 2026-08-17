@@ -1,66 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ -f "$FORGE_SITE_PATH/scripts/forge-deploy.sh" ]]; then
-  ROOT="$FORGE_SITE_PATH"
-elif [[ -f "$FORGE_SITE_PATH/../scripts/forge-deploy.sh" ]]; then
-  ROOT="$(cd "$FORGE_SITE_PATH/.." && pwd)"
-else
-  echo "Cannot find repo root from FORGE_SITE_PATH=$FORGE_SITE_PATH" >&2
-  exit 1
-fi
-
-cd "$ROOT"
+# Forge always uses zero-downtime deployments for Nuxt sites (mandatory,
+# not configurable). By the time this script runs, Forge has already
+# cloned the new release and `cd`'d into it — see the site's Deploy
+# Script, which calls this from inside the $CREATE_RELEASE() block. Do
+# not `git pull` here: there is nothing to pull, and this is not
+# necessarily the same directory as $FORGE_SITE_PATH (which points at
+# `current`, i.e. the *previous* release, until $ACTIVATE_RELEASE() runs).
+ROOT="$PWD"
 
 export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
 
-ENV_FILE=""
-for candidate in "$ROOT/.env" "$ROOT/../.env"; do
-  if [[ -f "$candidate" ]]; then
-    ENV_FILE="$(cd "$(dirname "$candidate")" && pwd)/$(basename "$candidate")"
-    break
-  fi
-done
-
-if [[ -n "$ENV_FILE" ]]; then
+# .env is a Forge "shared path", symlinked into every release directory
+# automatically (Forge does this by default for zero-downtime sites).
+if [[ -f "$ROOT/.env" ]]; then
   set -a
   # shellcheck disable=SC1091
-  source "$ENV_FILE"
+  source "$ROOT/.env"
   set +a
 fi
 
-# The .env file sourced above sets PORT=8080 for the Go daemon (read
-# separately, by run-api.sh, when Supervisor starts it). Nitro also reads
-# PORT — to bind the Nuxt/PM2 process to NUXT_PORT instead of colliding with
-# the Go daemon, PORT is deliberately overridden to match NUXT_PORT for the
-# rest of *this script's* process tree only.
-export NUXT_PORT="${NUXT_PORT:-3005}"
-export PORT="$NUXT_PORT"
-
-git pull origin "$FORGE_SITE_BRANCH"
-
-if [[ "${DEPLOY_SCRIPT_REEXECED:-}" != "1" && -f "$ROOT/scripts/forge-deploy.sh" ]]; then
-  export DEPLOY_SCRIPT_REEXECED=1
-  exec bash "$ROOT/scripts/forge-deploy.sh"
-fi
-
-chmod +x scripts/run-api.sh
-
-cd backend
+cd "$ROOT/backend"
 go build -o server ./cmd/server
 DATABASE_URL="$DATABASE_URL" go run ./cmd/migrate up
-cd ..
+cd "$ROOT"
 
-cd frontend
+cd "$ROOT/frontend"
 npm ci
 npm run build
-pm2 delete facevalue-web 2>/dev/null || true
-pm2 start ecosystem.config.cjs --update-env
-pm2 save
-cd ..
+cd "$ROOT"
 
-if [[ -n "${FORGE_API_DAEMON:-}" ]]; then
-  if ! sudo supervisorctl restart "$FORGE_API_DAEMON"; then
-    echo "Warning: could not restart $FORGE_API_DAEMON — check Server → Daemons for the supervisor name (e.g. daemon-1234567)" >&2
-  fi
-fi
+chmod +x scripts/run-api.sh

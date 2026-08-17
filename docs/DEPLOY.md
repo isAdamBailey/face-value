@@ -71,23 +71,79 @@ The deploy script adds `/usr/local/go/bin` to `PATH`.
 ## 2. Create the Forge site
 
 1. **Sites → New Site** → your domain (e.g. `facevalue.example.com`).
-2. Project type: **Nuxt**.
+2. Project type: **Nuxt**. Mode: **Node.js Server**, not Static Site — the
+   app builds with `nuxt build` (not `nuxt generate`) and needs a running
+   Node process for Forge's Nginx to proxy to.
 3. **Web directory:** leave blank (repo root) — the deploy script builds from
    the monorepo; do not set `frontend`.
 4. **Server port:** `3005` — the other ports on this server are already taken
-   by other apps. Set `NUXT_PORT=3005` in environment to match (step 4).
+   by other apps.
 5. Connect **GitHub** → `isAdamBailey/face-value`, branch `main`.
 6. Enable **Push to deploy**.
-7. **Deploy script:**
+7. **SSL** → obtain a Let's Encrypt certificate.
 
-   ```bash
-   bash $FORGE_SITE_PATH/scripts/forge-deploy.sh
-   ```
+Forge clones the repo under `/home/forge/facevalue.example.com/`, with
+`current/` symlinked to whichever release is active.
 
-8. **SSL** → obtain a Let's Encrypt certificate.
+### Zero-downtime deployments (mandatory for Nuxt sites)
 
-Forge clones the repo under `/home/forge/facevalue.example.com/` with `current/`
-pointing at the active release.
+Forge **always** uses zero-downtime deployments for Nuxt and Next.js sites —
+this isn't a toggle. Each deploy clones into a fresh `releases/<id>/`
+directory; `current` only gets re-symlinked to it once every step succeeds.
+Concretely this means:
+
+- There's no `git pull` in our deploy script — Forge already did the clone
+  before calling it.
+- `$FORGE_SITE_PATH` points at `current` (the **previous**, still-live
+  release) until activation — not the new code being built. Our script
+  never references it; it just uses `$PWD`, since Forge already `cd`s into
+  the new release directory first.
+- `.env` is a Forge "shared path" and is symlinked into every new release
+  automatically (this is Forge's default for zero-downtime sites — nothing
+  to configure).
+- Forge auto-generates the site's **Deploy Script** as a template with
+  `$CREATE_RELEASE()` / `$ACTIVATE_RELEASE()` markers. Anything before
+  `$ACTIVATE_RELEASE()` runs in the new (not-yet-live) release directory;
+  anything after it runs once `current` points at the new release — that's
+  where PM2 and the Go daemon restart belong, per
+  [Forge's own docs](https://forge.laravel.com/docs/sites/deployments).
+
+Replace the site's **Deploy Script** with the following — keep Forge's own
+`$CREATE_RELEASE()` / `$ACTIVATE_RELEASE()` macros and its generated PM2
+block (the `site-<id>.json` PM2 config Forge scaffolds for you), just add
+the two lines noted below. Find the current template under the site's
+**Apps** tab (or wherever your Forge version surfaces the deploy script) and
+edit in place rather than replacing it wholesale, since Forge's own PM2
+snippet already has your site's actual ID baked into the process name and
+port — don't hand-copy those values from an example:
+
+```bash
+$CREATE_RELEASE()
+
+cd $FORGE_RELEASE_DIRECTORY
+
+bash scripts/forge-deploy.sh          # <-- add this line
+
+$ACTIVATE_RELEASE()
+
+# ...Forge's own generated PM2 block goes here, unchanged...
+
+# Restart the Go API daemon now that `current` points at the new
+# release — must come after $ACTIVATE_RELEASE(), never before.
+sudo supervisorctl restart FORGE_API_DAEMON   # <-- add this line, using the real daemon-XXXXXXX name from step 5
+```
+
+Two things worth calling out:
+
+- `bash scripts/forge-deploy.sh` (relative, not `$FORGE_SITE_PATH/scripts/forge-deploy.sh`)
+  — a relative path is unambiguous since the preceding `cd $FORGE_RELEASE_DIRECTORY`
+  already put you in the new release; `$FORGE_SITE_PATH` points at the *old*
+  release and may not even exist yet on a brand-new site's first deploy.
+- The Go daemon restart is **not** inside `scripts/forge-deploy.sh` — that
+  script only runs during `$CREATE_RELEASE()`, before `current` is updated,
+  so restarting the daemon there would restart it against the *old* code.
+  It has to be a separate line in Forge's own script, after
+  `$ACTIVATE_RELEASE()`.
 
 ---
 
@@ -197,8 +253,12 @@ Production-only (not in `.env.example`):
 | Variable | Value |
 | --- | --- |
 | `PORT` | `8080` (Go API — nginx proxies `/api` here) |
-| `NUXT_PORT` | `3005` |
-| `FORGE_API_DAEMON` | Supervisor name from Forge → Daemons, e.g. `daemon-1234567` |
+| `FORGE_API_DAEMON` | Supervisor name from Forge → Daemons, e.g. `daemon-1234567` — used in the Deploy Script's post-`$ACTIVATE_RELEASE()` restart line, not read by the app itself |
+
+`NUXT_PORT` isn't something we set here — Forge's own generated PM2 config
+(the `site-<id>.json` block in the Deploy Script) hardcodes the Nuxt port
+directly via its `port` field, which PM2 turns into the process's `PORT`
+env var.
 
 Changing env vars only requires restarting the API daemon — no full redeploy:
 
@@ -216,10 +276,11 @@ sudo supervisorctl restart daemon-1234567
 4. **User:** `forge`
 
 Copy the supervisor name from the daemon page (e.g. `daemon-1234567`, including
-the `daemon-` prefix) into `FORGE_API_DAEMON`.
-
-The deploy script runs `git pull`, builds the Go binary, migrates the database,
-rebuilds Nuxt, reloads PM2, and restarts this daemon.
+the `daemon-` prefix) into `FORGE_API_DAEMON`, then use that same name in the
+`sudo supervisorctl restart FORGE_API_DAEMON` line you add to the site's
+Deploy Script (step 2) — Forge doesn't restart daemons automatically on
+deploy, and this app's daemon needs an explicit restart to pick up the
+newly-built Go binary in the just-activated release.
 
 ---
 
@@ -288,10 +349,10 @@ sandbox.
 
 | Symptom | Fix |
 |---------|-----|
-| 502 on `/` | `pm2 list` — `facevalue-web` must listen on `NUXT_PORT`. See Nuxt 502 below. |
+| 502 on `/` | `pm2 list` — the site's `site-<id>` process must be online. Check the PM2 block in the Deploy Script ran (Forge deploy log). |
 | 502 on `/api` | Check **Server → Daemons**; run `scripts/run-api.sh` manually for errors |
-| Nuxt binds to wrong port | Set `NUXT_PORT=3005` in Forge env (not `PORT` — that's Go on 8080). Restart PM2 or redeploy. |
-| Nuxt 502 after deploy | `cd current/frontend && export NUXT_PORT=3005 PORT=3005 && pm2 delete facevalue-web; pm2 start ecosystem.config.cjs --update-env && pm2 save` |
+| `[PM2][ERROR] Process or Namespace site-<id> not found` | The PM2 block's `pm2 start .../site-<id>.json \|\| pm2 reload site-<id>` fell through to `reload` because `start` failed — usually means `.output/server/index.mjs` doesn't exist yet in `current`, i.e. `npm run build` (inside `scripts/forge-deploy.sh`, run during `$CREATE_RELEASE()`) didn't complete. Check the deploy log for the build step, not the PM2 step. |
+| PM2 step runs against the old code | The daemon/PM2 restart lines must come **after** `$ACTIVATE_RELEASE()` in the Deploy Script — before that marker, `current` still points at the previous release |
 | 413 on upload | `client_max_body_size` missing from nginx |
 | Upload 504s | `proxy_read_timeout` too low, or the pipeline is blocking the request (it shouldn't be — see `internal/appraisal`) |
 | Thumbnails break after a while | Presigned URLs expired on a long-open tab — refetch, or raise `S3_PRESIGN_TTL` |
