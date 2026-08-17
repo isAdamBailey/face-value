@@ -152,7 +152,7 @@ pm2 save
 
 # Restart the Go API daemon now that `current` points at the new
 # release — must come after $ACTIVATE_RELEASE(), never before.
-sudo supervisorctl restart FORGE_API_DAEMON   # <-- add this line, using the real daemon-XXXXXXX name from step 5
+sudo supervisorctl restart FORGE_API_DAEMON:*   # <-- add this line; :* restarts the whole process group, using the real daemon-XXXXXXX name from step 5
 ```
 
 `<id>` above is Forge's numeric site ID — it's already correct in whatever
@@ -291,7 +291,7 @@ env var.
 Changing env vars only requires restarting the API daemon — no full redeploy:
 
 ```sh
-sudo supervisorctl restart daemon-1234567
+sudo supervisorctl restart daemon-1234567:*
 ```
 
 ---
