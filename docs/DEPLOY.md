@@ -74,8 +74,13 @@ The deploy script adds `/usr/local/go/bin` to `PATH`.
 2. Project type: **Nuxt**. Mode: **Node.js Server**, not Static Site — the
    app builds with `nuxt build` (not `nuxt generate`) and needs a running
    Node process for Forge's Nginx to proxy to.
-3. **Web directory:** leave blank (repo root) — the deploy script builds from
-   the monorepo; do not set `frontend`.
+3. **Web directory:** `frontend`. Unlike massa's non-zero-downtime setup,
+   this matters here: Forge's auto-generated PM2 config for zero-downtime
+   Nuxt sites assumes `.output/server/index.mjs` sits directly under
+   `current/` — this monorepo builds it to `frontend/.output/...` instead,
+   so the PM2 block's `cwd` needs `/frontend` appended (see below). The Go
+   backend and deploy script still live at the repo root regardless of this
+   setting; it only affects Forge's own generated PM2/build assumptions.
 4. **Server port:** `3005` — the other ports on this server are already taken
    by other apps.
 5. Connect **GitHub** → `isAdamBailey/face-value`, branch `main`.
@@ -126,12 +131,35 @@ bash scripts/forge-deploy.sh          # <-- add this line
 
 $ACTIVATE_RELEASE()
 
-# ...Forge's own generated PM2 block goes here, unchanged...
+# Ensure PM2 config exists...
+if [ ! -f /home/forge/.pm2-conf/site-<id>.json ]; then
+    mkdir -p /home/forge/.pm2-conf
+    cat <<'EOF' > /home/forge/.pm2-conf/site-<id>.json
+{
+    name: "site-<id>",
+    cwd: "/home/forge/facevalue.example.com/current/frontend",   # <-- add /frontend here
+    script: "./.output/server/index.mjs",
+    instances: "max",
+    exec_mode: "cluster",
+    port: "3005",
+}
+EOF
+fi
+
+# Start or reload the PM2 process...
+pm2 start /home/forge/.pm2-conf/site-<id>.json || pm2 reload site-<id> --update-env
+pm2 save
 
 # Restart the Go API daemon now that `current` points at the new
 # release — must come after $ACTIVATE_RELEASE(), never before.
 sudo supervisorctl restart FORGE_API_DAEMON   # <-- add this line, using the real daemon-XXXXXXX name from step 5
 ```
+
+`<id>` above is Forge's numeric site ID — it's already correct in whatever
+Forge generated for you; only the `cwd` line needs a manual edit. This is
+also the fix if you hit `[PM2][ERROR] Error: Script not found: .../current/.output/server/index.mjs`
+after a deploy that otherwise built successfully — the build produced
+`frontend/.output/...`, but `cwd` was still pointing at the repo root.
 
 Two things worth calling out:
 
@@ -351,7 +379,8 @@ sandbox.
 |---------|-----|
 | 502 on `/` | `pm2 list` — the site's `site-<id>` process must be online. Check the PM2 block in the Deploy Script ran (Forge deploy log). |
 | 502 on `/api` | Check **Server → Daemons**; run `scripts/run-api.sh` manually for errors |
-| `[PM2][ERROR] Process or Namespace site-<id> not found` | The PM2 block's `pm2 start .../site-<id>.json \|\| pm2 reload site-<id>` fell through to `reload` because `start` failed — usually means `.output/server/index.mjs` doesn't exist yet in `current`, i.e. `npm run build` (inside `scripts/forge-deploy.sh`, run during `$CREATE_RELEASE()`) didn't complete. Check the deploy log for the build step, not the PM2 step. |
+| `[PM2][ERROR] Process or Namespace site-<id> not found`, preceded by `Error: Script not found: .../current/.output/server/index.mjs` | The PM2 block's `cwd` points at the repo root, but this monorepo builds Nuxt to `frontend/.output/...`. Add `/frontend` to `cwd` in the PM2 config block — see §2's Deploy Script section. |
+| Same errors, but `.output` genuinely doesn't exist anywhere | The build itself failed earlier in the log — check for a `go build`/`npm ci`/`npm run build` error above the PM2 section; Forge doesn't necessarily stop the deploy just because `scripts/forge-deploy.sh` exited non-zero. |
 | PM2 step runs against the old code | The daemon/PM2 restart lines must come **after** `$ACTIVATE_RELEASE()` in the Deploy Script — before that marker, `current` still points at the previous release |
 | 413 on upload | `client_max_body_size` missing from nginx |
 | Upload 504s | `proxy_read_timeout` too low, or the pipeline is blocking the request (it shouldn't be — see `internal/appraisal`) |
