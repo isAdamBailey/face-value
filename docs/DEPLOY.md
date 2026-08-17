@@ -351,17 +351,28 @@ reloads Nginx.
 
 1. **Deploy Now** in Forge (or push to `main` with push-to-deploy enabled).
 2. Confirm the log shows: `go build`, the migrate step, `npm run build`, PM2
-   start, and the daemon restart.
-3. Verify:
+   start, and the daemon restart — see the troubleshooting table below for
+   the (many) ways this can go sideways on a monorepo's first zero-downtime
+   deploy; none of them are subtle once you know what to check.
+3. Verify, from the server:
 
    ```sh
-   curl -s https://facevalue.example.com/healthz
-   curl -I http://127.0.0.1:3005
-   pm2 list
+   curl http://127.0.0.1:8080/healthz    # Go daemon directly
+   pm2 list                              # site-<id> should be "online"
+   ```
+
+   Then publicly:
+
+   ```sh
+   curl https://facevalue.example.com/healthz
+   curl -I https://facevalue.example.com/
    ```
 
 4. Request a magic link, complete login, and upload one photo end to end —
-   confirm it reaches `status: "complete"` with a headline price.
+   confirm it reaches `status: "complete"` with a headline price. (If eBay
+   credentials are still pending approval, expect it to reach
+   `status: "failed"` at the pricing step instead — that's the app working
+   correctly with an incomplete environment, not a bug.)
 
 ---
 
@@ -392,7 +403,12 @@ sandbox.
 | Magic link 200, no email | Email not on `ALLOWED_EMAILS`, or SMTP misconfigured — check daemon logs |
 | Login redirect broken | `APP_BASE_URL` must match your HTTPS domain |
 | Deploy fails on `go build` | Install Go (see step 1) |
-| Daemon restart fails in deploy | Set `FORGE_API_DAEMON` to the full supervisor name (`daemon-1234567`) |
+| Daemon restart fails in deploy | Use the full name **with the `:*` suffix**: `sudo supervisorctl restart daemon-1234567:*` — Supervisor registers Forge daemons as a process group, and `restart <name>` alone often doesn't match it |
+| `daemon-<id>: ERROR (no such file)` on restart | Almost always a typo'd path in **Server → Daemons → this daemon**, not a missing file. Diff the `Command`/`Directory` fields against your site's *real* directory name character-for-character (`cat /etc/supervisor/conf.d/daemon-<id>.conf` shows exactly what Supervisor has) — easy to typo when copying from this doc's example domain instead of your actual one |
+| Server binary runs by hand but the daemon won't start | `go run ./cmd/migrate up` / `config.Load()` fail fast on any missing required env var — run `scripts/run-api.sh` directly by hand (bypassing Supervisor) to see the *actual* error; Supervisor's own error messages are much vaguer |
+| `bind: address already in use` on 8080, or the daemon respawns under new PIDs forever | **Stop** Supervisor first (`supervisorctl stop daemon-<id>:*`) before killing anything on the port — `autorestart=true` means killing the live process while Supervisor is still trying to manage it just respawns a new PID into the same race. Once stopped, `lsof -i :8080`, kill everything found, confirm the port is empty, *then* `supervisorctl start` |
+| `.env` missing on the server despite Forge's "Linking environment file" step succeeding | If **Web Directory** is set to `frontend` (as this monorepo needs — see §2), Forge symlinks the shared `.env` relative to *that* directory, not the release/site root. Both `scripts/forge-deploy.sh` and `scripts/run-api.sh` already check `frontend/.env` first for this reason — if you see this on a fresh checkout, check the Web Directory setting matches |
+| Two PM2 processes running for this site (e.g. `facevalue-web` *and* `site-<id>`) | `facevalue-web` (from `frontend/ecosystem.config.cjs`) is not used by Forge's zero-downtime deploys — only `site-<id>` (Forge's auto-generated config) actually serves traffic. `pm2 delete facevalue-web` if it's running; it's dead weight, not a second copy of the site |
 
 **Diagnose magic links:**
 
