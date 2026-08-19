@@ -4,6 +4,24 @@ import type { Search } from '~/stores/searches'
 const props = defineProps<{ search: Search }>()
 const emit = defineEmits<{ retry: [id: string] }>()
 
+const searches = useSearchesStore()
+const deleting = ref(false)
+const deleteError = ref(false)
+
+async function onDelete() {
+  if (deleting.value || !window.confirm('Delete this search? This cannot be undone.')) {
+    return
+  }
+  deleting.value = true
+  deleteError.value = false
+  try {
+    await searches.remove(props.search.id)
+  } catch {
+    deleteError.value = true
+    deleting.value = false
+  }
+}
+
 const { format: formatMoney } = useMoney()
 const { format: formatRelativeTime } = useRelativeTime()
 const palette = useSearchPalette(props.search.id)
@@ -51,6 +69,17 @@ const noteLine = computed(() => {
       class="torn-corner"
       aria-hidden="true"
     />
+
+    <button
+      type="button"
+      class="delete-btn absolute top-1.5 left-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/70 disabled:opacity-100"
+      :disabled="deleting"
+      :aria-label="`Delete ${nameplate}`"
+      @click.stop.prevent="onDelete"
+    >
+      <span v-if="deleting" class="text-[0.65rem]">…</span>
+      <span v-else aria-hidden="true">&times;</span>
+    </button>
 
     <div class="aspect-square w-full overflow-hidden" :class="palette.imgBg">
       <div
@@ -101,6 +130,10 @@ const noteLine = computed(() => {
           {{ search.comp_count }} listing{{ search.comp_count === 1 ? '' : 's' }}
         </span>
       </div>
+
+      <p v-if="deleteError" class="text-xs text-fail">
+        Couldn't delete. Try again.
+      </p>
 
       <button
         v-if="isFailed || search.still_working"
