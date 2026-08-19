@@ -27,7 +27,9 @@ func (s *Source) Name() string { return "ebay_browse" }
 
 // marketplaceCurrency maps an eBay marketplace ID to the currency its
 // listings are denominated in. There is no FX conversion in v1: comps in
-// any other currency are skipped rather than converted.
+// any other currency are skipped rather than converted. Exported as
+// CurrencyFor so other pricing.Source implementations (e.g. serpapi) can
+// reuse the same marketplace/currency mapping.
 var marketplaceCurrency = map[string]string{
 	"EBAY_US": "USD",
 	"EBAY_GB": "GBP",
@@ -36,7 +38,9 @@ var marketplaceCurrency = map[string]string{
 	"EBAY_CA": "CAD",
 }
 
-func currencyFor(marketplace string) string {
+// CurrencyFor returns the currency an eBay marketplace's listings are
+// denominated in, defaulting to USD for an unrecognized marketplace.
+func CurrencyFor(marketplace string) string {
 	if c, ok := marketplaceCurrency[marketplace]; ok {
 		return c
 	}
@@ -73,7 +77,7 @@ func (s *Source) Find(ctx context.Context, q pricing.Query) ([]pricing.Comp, err
 		}
 	}
 
-	expectedCurrency := currencyFor(marketplace)
+	expectedCurrency := CurrencyFor(marketplace)
 	comps := make([]pricing.Comp, 0, len(items))
 	for _, item := range items {
 		if isAuction(item.BuyingOptions) {

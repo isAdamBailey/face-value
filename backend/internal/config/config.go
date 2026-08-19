@@ -32,6 +32,9 @@ type Config struct {
 	EBayCompLimit    int
 	PriceSource      string
 
+	SerpAPIKey  string
+	SerpAPIBase string
+
 	S3Bucket          string
 	S3Region          string
 	S3AccessKeyID     string
@@ -76,11 +79,11 @@ func Load() (Config, error) {
 		HFVisionModel: envOrDefault("HF_VISION_MODEL", "Qwen/Qwen2.5-VL-72B-Instruct"),
 		HFAPIBase:     envOrDefault("HF_API_BASE", "https://router.huggingface.co/v1"),
 
-		EBayClientID:     require("EBAY_CLIENT_ID"),
-		EBayClientSecret: require("EBAY_CLIENT_SECRET"),
-		EBayAPIBase:      envOrDefault("EBAY_API_BASE", "https://api.sandbox.ebay.com"),
-		EBayMarketplace:  envOrDefault("EBAY_MARKETPLACE_ID", "EBAY_US"),
-		PriceSource:      envOrDefault("PRICE_SOURCE", "ebay_browse"),
+		EBayAPIBase:     envOrDefault("EBAY_API_BASE", "https://api.sandbox.ebay.com"),
+		EBayMarketplace: envOrDefault("EBAY_MARKETPLACE_ID", "EBAY_US"),
+		PriceSource:     envOrDefault("PRICE_SOURCE", "ebay_browse"),
+
+		SerpAPIBase: envOrDefault("SERPAPI_BASE", "https://serpapi.com"),
 
 		S3Bucket:          require("S3_BUCKET"),
 		S3Region:          require("S3_REGION"),
@@ -95,6 +98,16 @@ func Load() (Config, error) {
 	cfg.EBayCompLimit = envOrDefaultInt("EBAY_COMP_LIMIT", 50)
 	cfg.MaxUploadBytes = envOrDefaultInt64("MAX_UPLOAD_BYTES", 10*1024*1024)
 	cfg.MaxConcurrentAppraisals = envOrDefaultInt("MAX_CONCURRENT_APPRAISALS", 4)
+
+	switch cfg.PriceSource {
+	case "ebay_browse":
+		cfg.EBayClientID = require("EBAY_CLIENT_ID")
+		cfg.EBayClientSecret = require("EBAY_CLIENT_SECRET")
+	case "serpapi_ebay":
+		cfg.SerpAPIKey = require("SERPAPI_KEY")
+	default:
+		return Config{}, fmt.Errorf(`PRICE_SOURCE must be "ebay_browse" or "serpapi_ebay", got %q`, cfg.PriceSource)
+	}
 
 	switch cfg.Email.Provider {
 	case "ses":

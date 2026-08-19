@@ -18,6 +18,8 @@ import (
 	"github.com/isAdamBailey/face-value/backend/internal/ebay"
 	"github.com/isAdamBailey/face-value/backend/internal/email"
 	"github.com/isAdamBailey/face-value/backend/internal/httpapi"
+	"github.com/isAdamBailey/face-value/backend/internal/pricing"
+	"github.com/isAdamBailey/face-value/backend/internal/serpapi"
 	"github.com/isAdamBailey/face-value/backend/internal/storage"
 	"github.com/isAdamBailey/face-value/backend/internal/users"
 	"github.com/isAdamBailey/face-value/backend/internal/vision"
@@ -76,8 +78,13 @@ func main() {
 
 	visionClient := vision.NewClient(cfg.HFAPIBase, cfg.HFToken, cfg.HFVisionModel)
 
-	ebayClient := ebay.NewClient(cfg.EBayAPIBase, cfg.EBayClientID, cfg.EBayClientSecret)
-	pricingSource := ebay.NewSource(ebayClient)
+	var pricingSource pricing.Source
+	switch cfg.PriceSource {
+	case "serpapi_ebay":
+		pricingSource = serpapi.NewSource(serpapi.NewClient(cfg.SerpAPIBase, cfg.SerpAPIKey))
+	default:
+		pricingSource = ebay.NewSource(ebay.NewClient(cfg.EBayAPIBase, cfg.EBayClientID, cfg.EBayClientSecret))
+	}
 
 	appraisalSvc := appraisal.NewService(pool, queries, visionClient, pricingSource, appraisal.Config{
 		Marketplace:   cfg.EBayMarketplace,
