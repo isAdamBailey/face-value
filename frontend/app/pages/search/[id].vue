@@ -88,7 +88,7 @@ async function onRerun() {
 <template>
   <div class="min-h-screen bg-ground text-ink">
     <main class="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-      <NuxtLink to="/" class="text-sm text-ink-soft hover:underline">
+      <NuxtLink to="/" class="-mx-2 -my-1 inline-block rounded px-2 py-1 text-sm text-ink-soft hover:underline">
         ← Back to searches
       </NuxtLink>
 
@@ -249,18 +249,18 @@ async function onRerun() {
           <label for="search_query" class="block text-sm font-medium text-ink">
             Search query
           </label>
-          <div class="flex gap-2">
+          <div class="flex flex-col gap-2 sm:flex-row">
             <input
               id="search_query"
               v-model="editedQuery"
               type="text"
-              class="w-full rounded-md bg-ground-deep px-3 py-2 text-sm text-ink ring-1 ring-line-strong"
+              class="w-full rounded-md bg-ground-deep px-4 py-3 text-base text-ink ring-1 ring-line-strong"
               @input="editedQueryTouched = true"
             >
             <button
               type="button"
               :disabled="rerunning || !editedQuery.trim()"
-              class="shrink-0 rounded-full bg-terracotta-ink px-4 py-2 font-display text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
+              class="min-h-12 shrink-0 rounded-full bg-terracotta-ink px-5 py-3 font-display text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
               @click="onRerun"
             >
               {{ rerunning ? 'Re-running…' : 'Re-run pricing' }}

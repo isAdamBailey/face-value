@@ -16,20 +16,23 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-ground px-4 text-ink">
+  <div class="specimen-wash flex min-h-screen items-center justify-center px-4 text-ink">
     <div class="w-full max-w-sm space-y-8">
-      <div class="space-y-2 text-center">
-        <h1 class="font-display text-2xl font-bold">
-          Face Value
-        </h1>
-        <p class="text-sm text-ink-soft">
-          Sign in with your email
-        </p>
+      <div class="flex flex-col items-center gap-3 text-center">
+        <AppLogo :size="44" />
+        <div class="space-y-1">
+          <h1 class="font-display text-2xl font-bold">
+            Face Value
+          </h1>
+          <p class="text-sm text-ink-soft">
+            Sign in with your email
+          </p>
+        </div>
       </div>
 
       <form
         v-if="status !== 'sent'"
-        class="space-y-3"
+        class="space-y-4 rounded-2xl bg-ground/80 p-5 shadow-[0_1px_0_rgba(36,31,26,.06),0_6px_16px_-10px_rgba(36,31,26,.35)]"
         @submit.prevent="onSubmit"
       >
         <div>
@@ -44,14 +47,14 @@ async function onSubmit() {
             required
             placeholder="you@example.com"
             autocomplete="email"
-            class="mt-1 w-full rounded-md bg-ground-deep px-3 py-2 text-sm text-ink ring-1 ring-line-strong"
+            class="mt-1.5 w-full rounded-md bg-ground-deep px-4 py-3 text-base text-ink ring-1 ring-line-strong"
           >
         </div>
 
         <button
           type="submit"
           :disabled="status === 'sending'"
-          class="w-full rounded-full bg-terracotta-ink px-4 py-2 font-display text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
+          class="min-h-12 w-full rounded-full bg-terracotta-ink px-4 py-3.5 font-display text-base font-semibold text-white transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:hover:translate-y-0"
         >
           {{ status === 'sending' ? 'Sending…' : 'Send sign-in link' }}
         </button>
@@ -66,7 +69,7 @@ async function onSubmit() {
 
       <p
         v-else
-        class="text-center text-sm text-ink-soft"
+        class="rounded-2xl bg-ground/80 p-5 text-center text-sm text-ink-soft shadow-[0_1px_0_rgba(36,31,26,.06),0_6px_16px_-10px_rgba(36,31,26,.35)]"
       >
         If that email is allowed to sign in, a link has been sent. Check your
         inbox and click the link to continue.

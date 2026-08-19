@@ -55,51 +55,64 @@ function openFilePicker() {
 
 <template>
   <div class="min-h-screen bg-ground text-ink">
-    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <header class="flex items-baseline justify-between border-b-2 border-line-strong pb-4">
-        <div>
-          <h1 class="font-display text-3xl font-bold tracking-tight text-ink">
-            Face Value
-          </h1>
-          <p class="mt-1 text-sm text-ink-soft">
-            Your searches — average asking price across current listings,
-            never a sale.
+    <div class="specimen-wash">
+      <main class="mx-auto max-w-6xl px-4 pt-8 pb-6 sm:px-6">
+        <header class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <AppLogo :size="36" />
+            <div>
+              <h1 class="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+                Face Value
+              </h1>
+              <p class="mt-1 text-sm text-ink-soft">
+                Your searches — average asking price across current listings,
+                never a sale.
+              </p>
+            </div>
+          </div>
+          <p class="hidden shrink-0 text-right text-xs tracking-widest text-ink-soft uppercase sm:block">
+            Est. searches<br>No. {{ String(searches.items.length).padStart(3, '0') }}
+          </p>
+        </header>
+
+        <div
+          class="mt-6 flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors sm:py-14"
+          :class="isDragging ? 'border-terracotta-ink bg-terracotta-bg' : 'border-line-strong bg-ground/70'"
+          @dragover.prevent="isDragging = true"
+          @dragleave.prevent="isDragging = false"
+          @drop.prevent="onDrop"
+        >
+          <span class="flex h-12 w-12 items-center justify-center rounded-full bg-terracotta-bg text-terracotta-ink">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+              <path d="M4 16.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5M12 15V4m0 0-4 4m4-4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+          <p class="text-sm text-ink-soft">
+            Drop a photo to add a find, or
+          </p>
+          <button
+            type="button"
+            class="min-h-12 w-full rounded-full bg-terracotta-ink px-7 py-3.5 font-display text-base font-semibold text-white transition-transform hover:-translate-y-0.5 active:translate-y-0 sm:w-auto"
+            @click="openFilePicker"
+          >
+            Choose a photo
+          </button>
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            capture="environment"
+            class="sr-only"
+            @change="onFileInputChange"
+          >
+          <p v-if="uploadError" class="text-sm text-fail">
+            {{ uploadError }}
           </p>
         </div>
-        <p class="hidden shrink-0 text-right text-xs tracking-widest text-ink-soft uppercase sm:block">
-          Est. searches<br>No. {{ String(searches.items.length).padStart(3, '0') }}
-        </p>
-      </header>
+      </main>
+    </div>
 
-      <div
-        class="mt-6 flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors"
-        :class="isDragging ? 'border-terracotta-ink bg-terracotta-bg' : 'border-line-strong bg-ground-deep'"
-        @dragover.prevent="isDragging = true"
-        @dragleave.prevent="isDragging = false"
-        @drop.prevent="onDrop"
-      >
-        <p class="text-sm text-ink-soft">
-          Drop a photo to add a find, or
-        </p>
-        <button
-          type="button"
-          class="rounded-full bg-terracotta-ink px-5 py-2 font-display text-sm font-semibold text-white transition-transform hover:-translate-y-0.5"
-          @click="openFilePicker"
-        >
-          Choose a photo
-        </button>
-        <input
-          ref="fileInputRef"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          capture="environment"
-          class="sr-only"
-          @change="onFileInputChange"
-        >
-        <p v-if="uploadError" class="text-sm text-fail">
-          {{ uploadError }}
-        </p>
-      </div>
+    <main class="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
 
       <div v-if="searches.loading && !searches.initialized" class="mt-10 text-center text-sm text-ink-soft">
         Loading your searches…

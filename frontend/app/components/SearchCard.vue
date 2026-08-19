@@ -72,7 +72,7 @@ const noteLine = computed(() => {
 
     <button
       type="button"
-      class="delete-btn absolute top-1.5 left-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/70 disabled:opacity-100"
+      class="delete-btn absolute top-1.5 left-1.5 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-base text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/70 disabled:opacity-100"
       :disabled="deleting"
       :aria-label="`Delete ${nameplate}`"
       @click.stop.prevent="onDelete"
@@ -138,7 +138,7 @@ const noteLine = computed(() => {
       <button
         v-if="isFailed || search.still_working"
         type="button"
-        class="self-start text-xs font-medium text-terracotta-ink underline decoration-dotted underline-offset-2"
+        class="-mx-1 self-start rounded px-1 py-1.5 text-xs font-medium text-terracotta-ink underline decoration-dotted underline-offset-2"
         @click.prevent="emit('retry', search.id)"
       >
         Retry
@@ -233,6 +233,14 @@ const noteLine = computed(() => {
   .tag-detach-leave-active,
   .tag-detach-enter-active {
     transition: none;
+  }
+}
+
+/* Touch devices can't hover, so the delete control must default to visible
+   there rather than staying hidden behind a hover it can never receive. */
+@media (hover: none) {
+  .delete-btn {
+    opacity: 1;
   }
 }
 </style>

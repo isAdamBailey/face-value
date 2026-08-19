@@ -120,7 +120,7 @@ Five pastel fields, assigned deterministically per search id (a hash of the id, 
 - **Plum** (`#e9d6e3` / `#75335e`)
 
 ### Named Rules
-**The One Ground Rule.** The page ground is always the cool neutral; a card is always a full pastel field. The two families never blend — no tinted neutral, no desaturated pastel standing in for the page background.
+**The One Ground Rule.** The page ground is always the cool neutral; a card is always a full pastel field. The two families never blend — no tinted neutral, no desaturated pastel standing in for the page background. The one bounded exception is the specimen wash (see Components) behind the letterhead — everywhere the search grid itself sits, ground stays flat neutral.
 
 **The Cold Price Rule.** The price readout is always near-black background with amber glow (`#211b14` / `#ffb454`), regardless of the card's pastel color. It's the one element in the system that never adopts the local palette — its job is to read as a different kind of fact (measured, not decorated).
 
@@ -175,8 +175,14 @@ the torn corner is a `clip-path` polygon cut into the card's top-right.
 
 ### Buttons
 - **Shape:** full pill (`rounded-full`).
-- **Primary:** Ember Terracotta background, white text, Baloo 2 display font, `px-4 py-2` to `px-5 py-2`. Lifts 2px on hover (`hover:-translate-y-0.5`).
-- **Ghost/Link:** terracotta-ink text with a dotted underline (the "Retry" action on a failed card) or plain underline-on-hover (comp "View" links).
+- **Primary:** Ember Terracotta background, white text, Baloo 2 display font, `min-h-12` with `px-5 py-3` to `px-7 py-3.5` — full-width on mobile, auto-width from `sm` up. Lifts 2px on hover (`hover:-translate-y-0.5`), settles back on `active`.
+- **Ghost/Link:** terracotta-ink text with a dotted underline (the "Retry" action on a failed card) or plain underline-on-hover (comp "View" links). Given a small padded hit area (`px-1 py-1.5` or `-mx-2 -my-1 px-2 py-1`) so the tap target clears 44px even though the visible underline stays link-sized.
+
+### Logo Mark
+A single authored shape: a rotated rounded-square tag with a punched circular hole near its top-left corner, filled Ember Terracotta, the hole cut in the surrounding ground color. It's the same "physical tag" device the pending-status chip already uses, reused at brand scale rather than inventing a second icon language — `AppLogo.vue`, sized 30–44px depending on context (header vs. login).
+
+### Specimen Wash
+A bounded atmospheric background (`.specimen-wash` in `main.css`) used behind the letterhead on the home page and centered on the login page: five blurred radial-gradient blooms, one per specimen hue (terracotta/sage/ochre/slate/plum), layered over `ground-deep` via a blurred `::before`. It answers "the ground is always neutral" by keeping the wash to these two bounded regions — the search grid itself still sits on flat `ground`. Read it as the specimen palette introducing itself before it gets cut into individual cards below.
 
 ### Search Card (signature component)
 The system's defining element. A pastel-field card (one of the five specimen colors, chosen deterministically) with: a square photo, a Baloo 2 nameplate, a small uppercase "found `<time ago>`" label in the card's own ink tone, an italic one-line note (condition or search query), and the price readout bottom-left with comp count bottom-right. Pending searches carry the dangling tag (top-right, rotated, animates in/out via a cinch-and-snap transition rather than appearing/vanishing instantly); failed searches carry the torn-corner clip-path instead and drop the photo to `saturate-50 opacity-70`.
@@ -202,6 +208,7 @@ The system's defining element. A pastel-field card (one of the five specimen col
 - **Do** render status (pending/still-working/failed) as a physical device (tag, torn corner) with an actual enter/exit transition, never as a static badge that just appears and disappears.
 - **Do** reserve JetBrains Mono strictly for price figures.
 - **Do** theme browser-native surfaces (selection color, focus ring, scrollbar) from the palette rather than leaving OS defaults.
+- **Do** default touch-only controls to visible state (`@media (hover: none)`) rather than gating them behind `:hover`/`group-hover`, which touch input can never trigger.
 
 ### Don't:
 - **Don't** use "roster" or "collection" in any user-visible copy — the product's own word is "searches."
