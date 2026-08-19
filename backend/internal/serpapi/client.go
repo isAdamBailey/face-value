@@ -44,7 +44,11 @@ type organicResult struct {
 	} `json:"price"`
 	Condition string `json:"condition"`
 	Thumbnail string `json:"thumbnail"`
-	Bids      string `json:"bids"`
+	// Bids is present (as an object, not a bare string) only on live
+	// auction listings — its presence, not its contents, is what matters.
+	Bids struct {
+		Raw string `json:"raw"`
+	} `json:"bids"`
 }
 
 type searchResponse struct {

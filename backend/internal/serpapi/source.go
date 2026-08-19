@@ -61,7 +61,7 @@ func (s *Source) Find(ctx context.Context, q pricing.Query) ([]pricing.Comp, err
 	currency := ebay.CurrencyFor(q.Marketplace)
 	comps := make([]pricing.Comp, 0, len(results))
 	for _, r := range results {
-		if r.Bids != "" {
+		if r.Bids.Raw != "" {
 			// A live auction's current bid isn't a stable price signal —
 			// mirrors ebay.Source's isAuction exclusion.
 			continue

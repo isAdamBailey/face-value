@@ -76,7 +76,7 @@ func TestSource_Find_ExcludesAuctionsAndBadPrices(t *testing.T) {
 				"title": "Auction item",
 				"link":  "https://www.ebay.com/itm/2",
 				"price": map[string]string{"raw": "$999.00"},
-				"bids":  "5 bids",
+				"bids":  map[string]string{"raw": "5 bids"},
 			},
 			{
 				"title": "No price",
