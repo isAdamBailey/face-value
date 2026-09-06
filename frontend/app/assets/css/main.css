@@ -71,6 +71,7 @@ html {
 body {
   background-color: var(--color-ground);
   color: var(--color-ink);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Browser surfaces belong to the design too. */
