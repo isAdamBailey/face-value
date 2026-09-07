@@ -1,12 +1,15 @@
 <script setup lang="ts">
 const route = useRoute()
 const searches = useSearchesStore()
+const { label: searcherLabel } = useSearcher()
 const { format: formatMoney } = useMoney()
 const { format: formatRelativeTime } = useRelativeTime()
 
 const id = route.params.id as string
 
-const search = computed(() => searches.items.find(i => i.id === id))
+// Read the store's detail copy, not the grid: a shared search stays
+// viewable even when the home page's filter excludes it from `items`.
+const search = computed(() => (searches.current?.id === id ? searches.current : undefined))
 const palette = useSearchPalette(id)
 
 const loadingDetail = ref(true)
@@ -56,6 +59,10 @@ const isPending = computed(() => {
 const isFailed = computed(() => search.value?.status === 'failed')
 const isComplete = computed(() => search.value?.status === 'complete')
 
+// Results are shared with every login, but only the uploader can re-run
+// pricing on one — a re-run overwrites the comps everyone else is reading.
+const isOwner = computed(() => search.value?.is_owner === true)
+
 const compCount = computed(() => search.value?.comp_count ?? 0)
 const isLowSample = computed(() => isComplete.value && compCount.value > 0 && compCount.value < 3)
 const hasNoComps = computed(() => isComplete.value && compCount.value === 0)
@@ -104,7 +111,7 @@ async function onRerun() {
           Search not found
         </p>
         <p class="mt-2 text-sm text-ink-soft">
-          It may have been deleted, or it belongs to someone else.
+          It may have been deleted.
         </p>
       </div>
 
@@ -176,7 +183,8 @@ async function onRerun() {
               </p>
 
               <p class="text-xs tracking-wide text-ink-soft uppercase">
-                found {{ formatRelativeTime(search.created_at) }}
+                found by <span :title="search.user_email">{{ searcherLabel(search.user_email) }}</span>
+                {{ formatRelativeTime(search.created_at) }}
               </p>
             </div>
           </div>
@@ -245,7 +253,7 @@ async function onRerun() {
           </section>
         </template>
 
-        <section v-if="isComplete || isFailed" class="space-y-2">
+        <section v-if="(isComplete || isFailed) && isOwner" class="space-y-2">
           <label for="search_query" class="block text-sm font-medium text-ink">
             Search query
           </label>

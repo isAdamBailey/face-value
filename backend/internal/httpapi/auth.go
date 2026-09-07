@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/isAdamBailey/face-value/backend/internal/auth"
 )
@@ -25,7 +24,7 @@ func (h *Handler) requestMagicLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addr := strings.TrimSpace(strings.ToLower(req.Email))
+	addr := normalizeEmail(req.Email)
 	if addr == "" {
 		writeError(w, http.StatusBadRequest, "email is required")
 		return

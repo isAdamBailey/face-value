@@ -29,7 +29,16 @@ type Querier interface {
 	IsEmailAllowed(ctx context.Context, email string) (bool, error)
 	ListAllowedEmails(ctx context.Context) ([]string, error)
 	ListCompsBySearch(ctx context.Context, searchID pgtype.UUID) ([]Comp, error)
-	ListSearchesForUser(ctx context.Context, arg ListSearchesForUserParams) ([]Search, error)
+	ListSearchUsers(ctx context.Context) ([]string, error)
+	// Every signed-in user sees every search, so this is deliberately not
+	// scoped to the caller. The row-constructor comparison is what lets the
+	// keyset seek straight to the cursor on searches_created_idx instead of
+	// rescanning from the newest row on every page.
+	ListSearches(ctx context.Context, arg ListSearchesParams) ([]Search, error)
+	// The filtered variant is a separate statement rather than an
+	// `email IS NULL OR ...` predicate: a prepared generic plan can't fold that
+	// away, and it would lose the searches_user_created_idx seek.
+	ListSearchesByUser(ctx context.Context, arg ListSearchesByUserParams) ([]Search, error)
 	MarkMagicLinkTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkStaleSearchesFailed(ctx context.Context) error
 	SetSearchComplete(ctx context.Context, arg SetSearchCompleteParams) (Search, error)

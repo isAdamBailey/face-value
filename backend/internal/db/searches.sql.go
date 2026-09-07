@@ -110,30 +110,118 @@ func (q *Queries) GetSearch(ctx context.Context, id pgtype.UUID) (Search, error)
 	return i, err
 }
 
-const listSearchesForUser = `-- name: ListSearchesForUser :many
-SELECT id, user_email, status, error_message, image_key, image_width, image_height, title, brand, model, category, condition_notes, search_query, vision_model, vision_raw, confidence, price_source, currency, comp_count, price_mean, price_median, price_min, price_max, price_trimmed_mean, created_at, completed_at FROM searches
-WHERE user_email = $1
-  AND (
-    created_at < $3
-    OR (created_at = $3 AND id < $4)
-  )
-ORDER BY created_at DESC, id DESC
-LIMIT $2
+const listSearchUsers = `-- name: ListSearchUsers :many
+SELECT DISTINCT user_email FROM searches ORDER BY user_email
 `
 
-type ListSearchesForUserParams struct {
-	UserEmail       string             `json:"user_email"`
-	Limit           int32              `json:"limit"`
-	CursorCreatedAt pgtype.Timestamptz `json:"cursor_created_at"`
-	CursorID        pgtype.UUID        `json:"cursor_id"`
+func (q *Queries) ListSearchUsers(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listSearchUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var user_email string
+		if err := rows.Scan(&user_email); err != nil {
+			return nil, err
+		}
+		items = append(items, user_email)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-func (q *Queries) ListSearchesForUser(ctx context.Context, arg ListSearchesForUserParams) ([]Search, error) {
-	rows, err := q.db.Query(ctx, listSearchesForUser,
+const listSearches = `-- name: ListSearches :many
+SELECT id, user_email, status, error_message, image_key, image_width, image_height, title, brand, model, category, condition_notes, search_query, vision_model, vision_raw, confidence, price_source, currency, comp_count, price_mean, price_median, price_min, price_max, price_trimmed_mean, created_at, completed_at FROM searches
+WHERE (created_at, id) < ($1::timestamptz, $2::uuid)
+ORDER BY created_at DESC, id DESC
+LIMIT $3
+`
+
+type ListSearchesParams struct {
+	CursorCreatedAt pgtype.Timestamptz `json:"cursor_created_at"`
+	CursorID        pgtype.UUID        `json:"cursor_id"`
+	RowLimit        int32              `json:"row_limit"`
+}
+
+// Every signed-in user sees every search, so this is deliberately not
+// scoped to the caller. The row-constructor comparison is what lets the
+// keyset seek straight to the cursor on searches_created_idx instead of
+// rescanning from the newest row on every page.
+func (q *Queries) ListSearches(ctx context.Context, arg ListSearchesParams) ([]Search, error) {
+	rows, err := q.db.Query(ctx, listSearches, arg.CursorCreatedAt, arg.CursorID, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Search
+	for rows.Next() {
+		var i Search
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserEmail,
+			&i.Status,
+			&i.ErrorMessage,
+			&i.ImageKey,
+			&i.ImageWidth,
+			&i.ImageHeight,
+			&i.Title,
+			&i.Brand,
+			&i.Model,
+			&i.Category,
+			&i.ConditionNotes,
+			&i.SearchQuery,
+			&i.VisionModel,
+			&i.VisionRaw,
+			&i.Confidence,
+			&i.PriceSource,
+			&i.Currency,
+			&i.CompCount,
+			&i.PriceMean,
+			&i.PriceMedian,
+			&i.PriceMin,
+			&i.PriceMax,
+			&i.PriceTrimmedMean,
+			&i.CreatedAt,
+			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSearchesByUser = `-- name: ListSearchesByUser :many
+SELECT id, user_email, status, error_message, image_key, image_width, image_height, title, brand, model, category, condition_notes, search_query, vision_model, vision_raw, confidence, price_source, currency, comp_count, price_mean, price_median, price_min, price_max, price_trimmed_mean, created_at, completed_at FROM searches
+WHERE user_email = $1
+  AND (created_at, id) < ($2::timestamptz, $3::uuid)
+ORDER BY created_at DESC, id DESC
+LIMIT $4
+`
+
+type ListSearchesByUserParams struct {
+	UserEmail       string             `json:"user_email"`
+	CursorCreatedAt pgtype.Timestamptz `json:"cursor_created_at"`
+	CursorID        pgtype.UUID        `json:"cursor_id"`
+	RowLimit        int32              `json:"row_limit"`
+}
+
+// The filtered variant is a separate statement rather than an
+// `email IS NULL OR ...` predicate: a prepared generic plan can't fold that
+// away, and it would lose the searches_user_created_idx seek.
+func (q *Queries) ListSearchesByUser(ctx context.Context, arg ListSearchesByUserParams) ([]Search, error) {
+	rows, err := q.db.Query(ctx, listSearchesByUser,
 		arg.UserEmail,
-		arg.Limit,
 		arg.CursorCreatedAt,
 		arg.CursorID,
+		arg.RowLimit,
 	)
 	if err != nil {
 		return nil, err
