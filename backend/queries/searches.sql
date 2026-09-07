@@ -6,15 +6,28 @@ RETURNING *;
 -- name: GetSearch :one
 SELECT * FROM searches WHERE id = $1;
 
--- name: ListSearchesForUser :many
+-- name: ListSearches :many
+-- Every signed-in user sees every search, so this is deliberately not
+-- scoped to the caller. The row-constructor comparison is what lets the
+-- keyset seek straight to the cursor on searches_created_idx instead of
+-- rescanning from the newest row on every page.
 SELECT * FROM searches
-WHERE user_email = $1
-  AND (
-    created_at < sqlc.arg(cursor_created_at)
-    OR (created_at = sqlc.arg(cursor_created_at) AND id < sqlc.arg(cursor_id))
-  )
+WHERE (created_at, id) < (sqlc.arg(cursor_created_at)::timestamptz, sqlc.arg(cursor_id)::uuid)
 ORDER BY created_at DESC, id DESC
-LIMIT $2;
+LIMIT sqlc.arg(row_limit);
+
+-- name: ListSearchesByUser :many
+-- The filtered variant is a separate statement rather than an
+-- `email IS NULL OR ...` predicate: a prepared generic plan can't fold that
+-- away, so the email would degrade from an index qual to a row filter.
+SELECT * FROM searches
+WHERE user_email = sqlc.arg(user_email)
+  AND (created_at, id) < (sqlc.arg(cursor_created_at)::timestamptz, sqlc.arg(cursor_id)::uuid)
+ORDER BY created_at DESC, id DESC
+LIMIT sqlc.arg(row_limit);
+
+-- name: ListSearchUsers :many
+SELECT DISTINCT user_email FROM searches ORDER BY user_email;
 
 -- name: SetSearchIdentification :one
 UPDATE searches

@@ -31,6 +31,10 @@ const isTerminal = computed(() => props.search.status === 'complete' || props.se
 const isFailed = computed(() => props.search.status === 'failed')
 const isComplete = computed(() => props.search.status === 'complete')
 
+// Searches are shared across every login, so each card says whose find it
+// is — and only the uploader gets the delete control.
+const { label: searcherLabel } = useSearcher()
+
 const nameplate = computed(() => {
   if (props.search.title) {
     return props.search.title
@@ -71,6 +75,7 @@ const noteLine = computed(() => {
     />
 
     <button
+      v-if="search.is_owner"
       type="button"
       class="delete-btn absolute top-1.5 left-1.5 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-base text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/70 disabled:opacity-100"
       :disabled="deleting"
@@ -101,8 +106,12 @@ const noteLine = computed(() => {
         {{ nameplate }}
       </p>
 
-      <p class="text-[0.7rem] tracking-wide uppercase" :class="palette.text">
-        found {{ formatRelativeTime(search.created_at) }}
+      <p
+        class="truncate text-[0.7rem] tracking-wide uppercase"
+        :class="palette.text"
+        :title="search.user_email"
+      >
+        {{ searcherLabel(search.user_email) }} · {{ formatRelativeTime(search.created_at) }}
       </p>
 
       <p

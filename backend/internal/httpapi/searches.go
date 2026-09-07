@@ -106,15 +106,10 @@ type listSearchesResponse struct {
 	NextCursor *string         `json:"next_cursor,omitempty"`
 }
 
-// listSearches returns a keyset-paginated page of the user's searches for
-// the home page grid.
+// listSearches returns a keyset-paginated page of searches for the home
+// page grid. Searches are shared: every signed-in user sees everyone's
+// finds. An optional ?email= narrows the page to one searcher.
 func (h *Handler) listSearches(w http.ResponseWriter, r *http.Request) {
-	user, ok := userFromContext(r.Context())
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "not authenticated")
-		return
-	}
-
 	limit := defaultListLimit
 	if v := r.URL.Query().Get("limit"); v != "" {
 		n, err := strconv.Atoi(v)
@@ -138,12 +133,22 @@ func (h *Handler) listSearches(w http.ResponseWriter, r *http.Request) {
 		cursorCreatedAt, cursorID = t, id
 	}
 
-	rows, err := h.queries.ListSearchesForUser(r.Context(), db.ListSearchesForUserParams{
-		UserEmail:       user.Email,
-		Limit:           int32(limit),
-		CursorCreatedAt: db.ToTimestamptz(cursorCreatedAt),
-		CursorID:        db.ToUUID(cursorID),
-	})
+	var rows []db.Search
+	var err error
+	if email := normalizeEmail(r.URL.Query().Get("email")); email != "" {
+		rows, err = h.queries.ListSearchesByUser(r.Context(), db.ListSearchesByUserParams{
+			UserEmail:       email,
+			RowLimit:        int32(limit),
+			CursorCreatedAt: db.ToTimestamptz(cursorCreatedAt),
+			CursorID:        db.ToUUID(cursorID),
+		})
+	} else {
+		rows, err = h.queries.ListSearches(r.Context(), db.ListSearchesParams{
+			RowLimit:        int32(limit),
+			CursorCreatedAt: db.ToTimestamptz(cursorCreatedAt),
+			CursorID:        db.ToUUID(cursorID),
+		})
+	}
 	if err != nil {
 		log.Printf("httpapi: list searches: %v", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
@@ -165,10 +170,31 @@ func (h *Handler) listSearches(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// listSearchersResponse is the JSON body returned by
+// GET /api/searches/searchers: every email that has run at least one
+// search, for the home page's filter control.
+type listSearchersResponse struct {
+	Items []string `json:"items"`
+}
+
+func (h *Handler) listSearchers(w http.ResponseWriter, r *http.Request) {
+	emails, err := h.queries.ListSearchUsers(r.Context())
+	if err != nil {
+		log.Printf("httpapi: list searchers: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if emails == nil {
+		emails = []string{}
+	}
+
+	writeJSON(w, http.StatusOK, listSearchersResponse{Items: emails})
+}
+
 // getSearch returns full detail for one search, including comps. It's also
 // the frontend's poll target while a search is still processing.
 func (h *Handler) getSearch(w http.ResponseWriter, r *http.Request) {
-	row, ok := h.loadOwnedSearch(w, r)
+	row, ok := h.loadSearch(w, r)
 	if !ok {
 		return
 	}
@@ -249,17 +275,11 @@ func (h *Handler) deleteSearch(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// loadOwnedSearch looks up the {id} path param and verifies it belongs to
-// the authenticated user, writing an error response and returning
-// ok=false if not. A search owned by someone else 404s rather than 403s,
-// so its existence isn't confirmed to a caller who shouldn't see it.
-func (h *Handler) loadOwnedSearch(w http.ResponseWriter, r *http.Request) (db.Search, bool) {
-	user, ok := userFromContext(r.Context())
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "not authenticated")
-		return db.Search{}, false
-	}
-
+// loadSearch looks up the {id} path param, writing an error response and
+// returning ok=false if it doesn't resolve. Reads are shared across all
+// signed-in users, so there's no ownership check here — see
+// loadOwnedSearch for the mutating handlers.
+func (h *Handler) loadSearch(w http.ResponseWriter, r *http.Request) (db.Search, bool) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		writeError(w, http.StatusNotFound, "search not found")
@@ -276,10 +296,35 @@ func (h *Handler) loadOwnedSearch(w http.ResponseWriter, r *http.Request) (db.Se
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return db.Search{}, false
 	}
+
+	return row, true
+}
+
+// loadOwnedSearch is loadSearch plus an ownership check, for the handlers
+// that change or remove a search. Results are readable by everyone, but
+// only the uploader may re-run or delete their own.
+func (h *Handler) loadOwnedSearch(w http.ResponseWriter, r *http.Request) (db.Search, bool) {
+	user, ok := userFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return db.Search{}, false
+	}
+
+	row, ok := h.loadSearch(w, r)
+	if !ok {
+		return db.Search{}, false
+	}
+
 	if row.UserEmail != user.Email {
-		writeError(w, http.StatusNotFound, "search not found")
+		writeError(w, http.StatusForbidden, "only the user who uploaded this search can change it")
 		return db.Search{}, false
 	}
 
 	return row, true
+}
+
+// normalizeEmail lowercases and trims an email so comparisons and filters
+// match how addresses are stored at sign-in.
+func normalizeEmail(email string) string {
+	return strings.TrimSpace(strings.ToLower(email))
 }

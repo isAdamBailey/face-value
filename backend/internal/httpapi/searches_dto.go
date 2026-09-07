@@ -13,6 +13,8 @@ import (
 // searchSummary is one row in the list/grid response.
 type searchSummary struct {
 	ID               string  `json:"id"`
+	UserEmail        string  `json:"user_email"`
+	IsOwner          bool    `json:"is_owner"`
 	Status           string  `json:"status"`
 	ErrorMessage     *string `json:"error_message,omitempty"`
 	ImageURL         string  `json:"image_url"`
@@ -45,6 +47,8 @@ type compDTO struct {
 // poll target while a search is pending/identifying/pricing.
 type searchDetail struct {
 	ID               string    `json:"id"`
+	UserEmail        string    `json:"user_email"`
+	IsOwner          bool      `json:"is_owner"`
 	Status           string    `json:"status"`
 	ErrorMessage     *string   `json:"error_message,omitempty"`
 	ImageURL         string    `json:"image_url"`
@@ -71,6 +75,15 @@ type searchDetail struct {
 
 const lowConfidenceThreshold = 0.35
 
+// isOwner reports whether the caller uploaded row. It's the same rule
+// loadOwnedSearch enforces, shipped to the client so the UI hides controls
+// the API would reject rather than re-deriving ownership from an email
+// string.
+func isOwner(ctx context.Context, row db.Search) bool {
+	user, ok := userFromContext(ctx)
+	return ok && user.Email == row.UserEmail
+}
+
 // imageURLFor returns a presigned GET URL for a search's image, logging
 // and returning "" on failure rather than failing the whole response — a
 // broken thumbnail is recoverable by a refetch, a 500 on the whole list
@@ -87,6 +100,8 @@ func (h *Handler) imageURLFor(ctx context.Context, imageKey string) string {
 func (h *Handler) searchSummaryFromRow(ctx context.Context, row db.Search) searchSummary {
 	return searchSummary{
 		ID:               db.FromUUID(row.ID).String(),
+		UserEmail:        row.UserEmail,
+		IsOwner:          isOwner(ctx, row),
 		Status:           row.Status,
 		ErrorMessage:     row.ErrorMessage,
 		ImageURL:         h.imageURLFor(ctx, row.ImageKey),
@@ -103,6 +118,8 @@ func (h *Handler) searchSummaryFromRow(ctx context.Context, row db.Search) searc
 func (h *Handler) searchDetailFromRow(ctx context.Context, row db.Search, comps []db.Comp) searchDetail {
 	detail := searchDetail{
 		ID:               db.FromUUID(row.ID).String(),
+		UserEmail:        row.UserEmail,
+		IsOwner:          isOwner(ctx, row),
 		Status:           row.Status,
 		ErrorMessage:     row.ErrorMessage,
 		ImageURL:         h.imageURLFor(ctx, row.ImageKey),

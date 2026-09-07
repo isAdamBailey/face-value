@@ -1,13 +1,24 @@
 <script setup lang="ts">
 const searches = useSearchesStore()
+const route = useRoute()
+const router = useRouter()
+const { label: searcherLabel } = useSearcher()
 
 const isDragging = ref(false)
 const uploadError = ref('')
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const sentinelRef = ref<HTMLElement | null>(null)
 
+// "Everyone" plus one option per searcher; the active one is whatever
+// ?email= says, so a filtered view is a link someone can share.
+const filterOptions = computed(() => [
+  { email: null, label: 'Everyone' },
+  ...searches.searchers.map(email => ({ email, label: searcherLabel(email) }))
+])
+
 onMounted(() => {
-  searches.loadInitial()
+  const email = route.query.email
+  searches.loadInitial(typeof email === 'string' ? email : null)
 
   const observer = new IntersectionObserver((entries) => {
     if (entries[0]?.isIntersecting) {
@@ -31,10 +42,24 @@ async function handleFiles(files: FileList | null) {
   uploadError.value = ''
   try {
     const resized = await resizeImageFile(file)
+    // create() returns to the shared view so the new card is visible.
     await searches.create(resized)
+    syncFilterToUrl()
   } catch {
     uploadError.value = 'Could not upload that image. Please try again.'
   }
+}
+
+async function selectFilter(email: string | null) {
+  await searches.setEmailFilter(email)
+  syncFilterToUrl()
+}
+
+/** syncFilterToUrl reflects the store's filter into the address bar so the
+ * view can be linked and survives a reload. */
+function syncFilterToUrl() {
+  const email = searches.emailFilter
+  router.replace({ query: email ? { email } : {} })
 }
 
 function onDrop(event: DragEvent) {
@@ -51,6 +76,7 @@ function onFileInputChange(event: Event) {
 function openFilePicker() {
   fileInputRef.value?.click()
 }
+
 </script>
 
 <template>
@@ -65,8 +91,8 @@ function openFilePicker() {
                 Face Value
               </h1>
               <p class="mt-1 text-sm text-ink-soft">
-                Your searches — average asking price across current listings,
-                never a sale.
+                Everyone's searches — average asking price across current
+                listings, never a sale.
               </p>
             </div>
           </div>
@@ -113,9 +139,31 @@ function openFilePicker() {
     </div>
 
     <main class="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
+      <div
+        v-if="searches.searchers.length > 1"
+        class="mt-8 flex flex-wrap items-center gap-2"
+      >
+        <span class="text-xs tracking-widest text-ink-soft uppercase">
+          Searched by
+        </span>
+        <button
+          v-for="option in filterOptions"
+          :key="option.email ?? 'everyone'"
+          type="button"
+          class="inline-flex min-h-8 items-center rounded-full px-3 py-1 text-xs transition-colors"
+          :class="searches.emailFilter === option.email
+            ? 'bg-terracotta-ink text-white'
+            : 'bg-ground-deep text-ink-soft ring-1 ring-line hover:text-ink'"
+          :title="option.email ?? undefined"
+          :aria-pressed="searches.emailFilter === option.email"
+          @click="selectFilter(option.email)"
+        >
+          {{ option.label }}
+        </button>
+      </div>
 
       <div v-if="searches.loading && !searches.initialized" class="mt-10 text-center text-sm text-ink-soft">
-        Loading your searches…
+        Loading searches…
       </div>
 
       <div
@@ -123,13 +171,21 @@ function openFilePicker() {
         class="mt-10 rounded-2xl border border-line bg-ground-deep px-6 py-16 text-center"
       >
         <p class="font-display text-lg font-semibold text-ink">
-          No searches yet
+          {{ searches.emailFilter ? 'No searches from that address yet' : 'No searches yet' }}
         </p>
         <p class="mx-auto mt-2 max-w-md text-sm text-ink-soft">
           Upload a photo of something you own and a vision model will identify it,
           then look up current listings on eBay to estimate an average asking
           price. Not a sale, not an appraisal — just a starting point.
         </p>
+        <button
+          v-if="searches.emailFilter"
+          type="button"
+          class="mt-4 rounded-full px-3 py-1.5 text-sm font-medium text-terracotta-ink underline decoration-dotted underline-offset-2"
+          @click="selectFilter(null)"
+        >
+          Show everyone's searches
+        </button>
       </div>
 
       <div
@@ -151,3 +207,4 @@ function openFilePicker() {
     </main>
   </div>
 </template>
+
