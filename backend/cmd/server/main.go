@@ -76,7 +76,7 @@ func main() {
 		log.Fatalf("storage: %v", err)
 	}
 
-	visionClient := vision.NewClient(cfg.HFAPIBase, cfg.HFToken, cfg.HFVisionModel)
+	visionClient := vision.NewClient(cfg.AnthropicAPIKey, cfg.AnthropicVisionModel)
 
 	var pricingSource pricing.Source
 	switch cfg.PriceSource {

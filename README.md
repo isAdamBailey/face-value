@@ -9,7 +9,7 @@ passwordless magic-link login.
 ## Stack
 
 - **Backend**: Go, [chi](https://github.com/go-chi/chi), pgx, sqlc, golang-migrate
-- **Vision**: Hugging Face Inference Providers (OpenAI-compatible router)
+- **Vision**: Anthropic Messages API (Claude Haiku 4.5 by default)
 - **Pricing**: eBay Browse API, behind a `pricing.Source` interface
 - **Images**: Amazon S3 (private bucket, presigned URLs)
 - **Frontend**: Nuxt 4, Tailwind CSS v4, Pinia
@@ -22,19 +22,19 @@ passwordless magic-link login.
 backend/    Go API server (cmd/server, cmd/migrate, internal/...)
 frontend/   Nuxt 4 SPA
 scripts/    Forge deploy script and API daemon wrapper
-docs/       Deployment, eBay, and Hugging Face setup
+docs/       Deployment, eBay, and Anthropic setup
 ```
 
 ## Deployment
 
 See [docs/DEPLOY.md](docs/DEPLOY.md) for production on a VPS with
 [Laravel Forge](https://forge.laravel.com) (push-to-deploy from GitHub), and
-[docs/EBAY_SETUP.md](docs/EBAY_SETUP.md) / [docs/HUGGINGFACE_SETUP.md](docs/HUGGINGFACE_SETUP.md)
+[docs/EBAY_SETUP.md](docs/EBAY_SETUP.md) / [docs/ANTHROPIC_SETUP.md](docs/ANTHROPIC_SETUP.md)
 for the two external API credentials it needs.
 
 ## Local development
 
-1. Copy `.env.example` to `.env` and fill in the values (Hugging Face token,
+1. Copy `.env.example` to `.env` and fill in the values (Anthropic API key,
    eBay sandbox keys, allowed emails, etc.).
 2. Start everything with Docker Compose:
 

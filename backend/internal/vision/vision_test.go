@@ -2,11 +2,15 @@ package vision
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"sync/atomic"
+	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/anthropics/anthropic-sdk-go/option"
 )
 
 const cleanJSON = `{"title":"Sony TC-377 reel-to-reel tape deck","brand":"Sony","model":"TC-377","category":"audio","condition_notes":"visible wear on case","search_query":"Sony TC-377 reel-to-reel","keywords":["tape deck","reel-to-reel"],"confidence":0.82}`
@@ -20,18 +24,30 @@ func newTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 
 func newClient(t *testing.T, srv *httptest.Server) *Client {
 	t.Helper()
-	c := NewClient(srv.URL, "test-token", "test-model")
-	c.SetHTTPClient(srv.Client())
-	return c
+	return NewClient("test-key", "test-model",
+		option.WithBaseURL(srv.URL),
+		option.WithHTTPClient(srv.Client()),
+		option.WithMaxRetries(0),
+	)
 }
 
-func chatResponseBody(content string) []byte {
+func messageResponseBody(stopReason, text string) []byte {
 	b, _ := json.Marshal(map[string]any{
-		"choices": []map[string]any{
-			{"message": map[string]any{"content": content}},
-		},
+		"id":          "msg_test",
+		"type":        "message",
+		"role":        "assistant",
+		"model":       "test-model",
+		"stop_reason": stopReason,
+		"content":     []map[string]any{{"type": "text", "text": text}},
+		"usage":       map[string]any{"input_tokens": 1, "output_tokens": 1},
 	})
 	return b
+}
+
+func writeJSON(w http.ResponseWriter, status int, body []byte) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
 }
 
 func assertIdentification(t *testing.T, ident Identification) {
@@ -47,12 +63,48 @@ func assertIdentification(t *testing.T, ident Identification) {
 	}
 }
 
-func TestIdentify_CleanJSON(t *testing.T) {
+func TestIdentify_Success(t *testing.T) {
 	srv := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if got := r.Header.Get("Authorization"); got != "Bearer test-token" {
-			t.Errorf("Authorization = %q", got)
+		if r.URL.Path != "/v1/messages" {
+			t.Errorf("path = %q, want /v1/messages", r.URL.Path)
 		}
-		_, _ = w.Write(chatResponseBody(cleanJSON))
+		if got := r.Header.Get("X-Api-Key"); got != "test-key" {
+			t.Errorf("X-Api-Key = %q", got)
+		}
+
+		var body struct {
+			Model    string `json:"model"`
+			Messages []struct {
+				Content []struct {
+					Type   string `json:"type"`
+					Source struct {
+						MediaType string `json:"media_type"`
+						Data      string `json:"data"`
+					} `json:"source"`
+				} `json:"content"`
+			} `json:"messages"`
+			OutputConfig struct {
+				Format struct {
+					Type string `json:"type"`
+				} `json:"format"`
+			} `json:"output_config"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if body.Model != "test-model" {
+			t.Errorf("model = %q", body.Model)
+		}
+		if body.OutputConfig.Format.Type != "json_schema" {
+			t.Errorf("output_config.format.type = %q, want json_schema", body.OutputConfig.Format.Type)
+		}
+		img := body.Messages[0].Content[0]
+		if img.Type != "image" || img.Source.MediaType != "image/jpeg" ||
+			img.Source.Data != base64.StdEncoding.EncodeToString([]byte("fake-image-bytes")) {
+			t.Errorf("first content block = %+v, want base64 jpeg image", img)
+		}
+
+		writeJSON(w, http.StatusOK, messageResponseBody("end_turn", cleanJSON))
 	})
 
 	ident, model, err := newClient(t, srv).Identify(context.Background(), []byte("fake-image-bytes"), "image/jpeg")
@@ -65,78 +117,58 @@ func TestIdentify_CleanJSON(t *testing.T) {
 	assertIdentification(t, ident)
 }
 
-func TestIdentify_FencedJSON(t *testing.T) {
-	srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(chatResponseBody("```json\n" + cleanJSON + "\n```"))
-	})
-
-	ident, _, err := newClient(t, srv).Identify(context.Background(), []byte("img"), "image/jpeg")
-	if err != nil {
-		t.Fatalf("Identify: %v", err)
+func TestIdentify_Errors(t *testing.T) {
+	cases := []struct {
+		name   string
+		status int
+		body   []byte
+	}{
+		{"truncated at max_tokens", http.StatusOK, messageResponseBody("max_tokens", `{"title": "Sony`)},
+		{"refusal", http.StatusOK, messageResponseBody("refusal", "")},
+		{"invalid json", http.StatusOK, messageResponseBody("end_turn", "not json")},
+		{"empty text", http.StatusOK, messageResponseBody("end_turn", "")},
+		{"api error", http.StatusUnauthorized, []byte(`{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}`)},
 	}
-	assertIdentification(t, ident)
-}
 
-func TestIdentify_ProseWrappedJSON(t *testing.T) {
-	srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(chatResponseBody("Sure, here is the identification:\n" + cleanJSON + "\nLet me know if you need anything else."))
-	})
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, tc.status, tc.body)
+			})
 
-	ident, _, err := newClient(t, srv).Identify(context.Background(), []byte("img"), "image/jpeg")
-	if err != nil {
-		t.Fatalf("Identify: %v", err)
-	}
-	assertIdentification(t, ident)
-}
-
-func TestIdentify_MalformedThenRetrySucceeds(t *testing.T) {
-	var calls int32
-	var sawRetryInstruction bool
-	srv := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		n := atomic.AddInt32(&calls, 1)
-
-		var body struct {
-			Messages []struct {
-				Role    string `json:"role"`
-				Content any    `json:"content"`
-			} `json:"messages"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-
-		if n == 2 {
-			last := body.Messages[len(body.Messages)-1]
-			if s, ok := last.Content.(string); ok && last.Role == "user" &&
-				(len(s) > 0) {
-				sawRetryInstruction = true
+			if _, _, err := newClient(t, srv).Identify(context.Background(), []byte("img"), "image/jpeg"); err == nil {
+				t.Fatal("Identify: want error, got nil")
 			}
-			_, _ = w.Write(chatResponseBody(cleanJSON))
-			return
-		}
+		})
+	}
+}
 
-		_, _ = w.Write(chatResponseBody(`{"title": "oops, not valid json`))
+func TestIdentify_ClampsConfidence(t *testing.T) {
+	srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, messageResponseBody("end_turn", strings.Replace(cleanJSON, `"confidence":0.82`, `"confidence":82`, 1)))
 	})
 
 	ident, _, err := newClient(t, srv).Identify(context.Background(), []byte("img"), "image/jpeg")
 	if err != nil {
 		t.Fatalf("Identify: %v", err)
 	}
-	assertIdentification(t, ident)
-	if calls != 2 {
-		t.Errorf("calls = %d, want 2 (initial + retry)", calls)
-	}
-	if !sawRetryInstruction {
-		t.Errorf("retry request did not include a follow-up user message")
+	if ident.Confidence != 1 {
+		t.Errorf("Confidence = %v, want clamped to 1", ident.Confidence)
 	}
 }
 
-func TestIdentify_MalformedTwiceIsHardError(t *testing.T) {
-	srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(chatResponseBody("not json at all, no braces here"))
-	})
-
-	_, _, err := newClient(t, srv).Identify(context.Background(), []byte("img"), "image/jpeg")
-	if err == nil {
-		t.Fatal("Identify: want error after two malformed responses, got nil")
+func TestIdentificationSchema_MatchesStruct(t *testing.T) {
+	props, _ := identificationSchema["properties"].(map[string]any)
+	required, _ := identificationSchema["required"].([]any)
+	fields := reflect.TypeFor[Identification]().NumField()
+	if len(props) != fields || len(required) != fields {
+		t.Errorf("schema has %d properties / %d required, want %d each", len(props), len(required), fields)
+	}
+	if identificationSchema["additionalProperties"] != false {
+		t.Errorf("additionalProperties = %v, want false", identificationSchema["additionalProperties"])
+	}
+	if _, ok := identificationSchema["$schema"]; ok {
+		t.Error("schema still has $schema key")
 	}
 }
 

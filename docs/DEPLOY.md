@@ -376,9 +376,9 @@ reloads Nginx.
 
 ---
 
-## eBay and Hugging Face credentials
+## eBay and Anthropic credentials
 
-See [EBAY_SETUP.md](./EBAY_SETUP.md) and [HUGGINGFACE_SETUP.md](./HUGGINGFACE_SETUP.md)
+See [EBAY_SETUP.md](./EBAY_SETUP.md) and [ANTHROPIC_SETUP.md](./ANTHROPIC_SETUP.md)
 for obtaining production API credentials before switching `EBAY_API_BASE` off
 sandbox.
 
@@ -398,7 +398,7 @@ sandbox.
 | Thumbnails break after a while | Presigned URLs expired on a long-open tab — refetch, or raise `S3_PRESIGN_TTL` |
 | All images 403 | IAM policy missing `s3:GetObject`, or the key prefix doesn't match `images/*` |
 | Every upload fails, works locally | `S3_ENDPOINT` or `S3_PUBLIC_ENDPOINT` still set to a MinIO host in Forge env — omit both in production |
-| Every search fails at identify | `HF_TOKEN` unset, or `HF_VISION_MODEL` no longer servable on the router |
+| Every search fails at identify | `ANTHROPIC_API_KEY` unset or invalid, or `ANTHROPIC_VISION_MODEL` not a valid model ID |
 | Every search returns 0 comps | Still pointing at `api.sandbox.ebay.com`, which has almost no inventory |
 | Magic link 200, no email | Email not on `ALLOWED_EMAILS`, or SMTP misconfigured — check daemon logs |
 | Login redirect broken | `APP_BASE_URL` must match your HTTPS domain |

@@ -21,9 +21,8 @@ type Config struct {
 	AllowedEmails       []string
 	Email               email.Config
 
-	HFToken       string
-	HFVisionModel string
-	HFAPIBase     string
+	AnthropicAPIKey      string
+	AnthropicVisionModel string
 
 	EBayClientID     string
 	EBayClientSecret string
@@ -75,9 +74,8 @@ func Load() (Config, error) {
 			FromEmail: require("MAGIC_LINK_FROM_EMAIL"),
 		},
 
-		HFToken:       require("HF_TOKEN"),
-		HFVisionModel: envOrDefault("HF_VISION_MODEL", "Qwen/Qwen2.5-VL-72B-Instruct"),
-		HFAPIBase:     envOrDefault("HF_API_BASE", "https://router.huggingface.co/v1"),
+		AnthropicAPIKey:      require("ANTHROPIC_API_KEY"),
+		AnthropicVisionModel: envOrDefault("ANTHROPIC_VISION_MODEL", "claude-haiku-4-5"),
 
 		EBayAPIBase:     envOrDefault("EBAY_API_BASE", "https://api.sandbox.ebay.com"),
 		EBayMarketplace: envOrDefault("EBAY_MARKETPLACE_ID", "EBAY_US"),
