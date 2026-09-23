@@ -39,7 +39,7 @@ valuation.
 
 ## Capabilities and Constraints
 
-- Vision identification via Hugging Face Inference Providers (VLM), pricing
+- Vision identification via Claude (Anthropic Messages API), pricing
   via eBay Browse API (active listings only — never "sold" data).
 - UI copy must never claim "sold price," "market value," or "what it's worth"
   — only "average asking price across current listings" framing (tracked in

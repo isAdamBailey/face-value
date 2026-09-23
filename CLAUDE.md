@@ -14,7 +14,7 @@ current listings — never "sold value", Browse only returns active listings).
 - **Frontend**: Nuxt 4 SPA (`ssr: false`), Tailwind v4, Pinia
 - **Database**: PostgreSQL 16
 - **Images**: Amazon S3 (private bucket, presigned GET URLs; MinIO locally)
-- **Vision**: Hugging Face Inference Providers router (OpenAI-compatible)
+- **Vision**: Anthropic Messages API via the official Go SDK (structured outputs)
 - **Pricing**: eBay Browse API (active listings), behind a `pricing.Source`
   interface so a sold-comps source can drop in later
 - **Local dev**: Docker Compose (Postgres + Mailpit + MinIO + backend + frontend)
@@ -86,7 +86,7 @@ Forge runs `scripts/forge-deploy.sh` on push. See `docs/DEPLOY.md`.
 - `db/` — sqlc-generated code + pgx pool + migration runner
 - `email/` — smtp + ses senders (ported from massa)
 - `ebay/` — OAuth application-token cache + Browse client
-- `vision/` — `Provider` interface + Hugging Face implementation
+- `vision/` — `Provider` interface + Anthropic (Claude) implementation
 - `pricing/` — `Source` interface + stats (mean/median/IQR-trimmed mean)
 - `storage/` — `ImageStore` interface + S3 implementation
 - `appraisal/` — orchestration: the pipeline tying vision → pricing → storage together
