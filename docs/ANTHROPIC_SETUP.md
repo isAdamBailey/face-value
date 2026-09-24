@@ -2,10 +2,17 @@
 
 Face Value identifies photographed items with Claude via the
 [Anthropic Messages API](https://docs.claude.com/en/api/messages).
-`internal/vision/anthropic.go` uses the official Go SDK
-(`github.com/anthropics/anthropic-sdk-go`) and
+`internal/vision/anthropic.go` calls it with plain `net/http` and uses
 [structured outputs](https://docs.claude.com/en/docs/build-with-claude/structured-outputs),
 so the response always matches the `Identification` JSON schema.
+
+It deliberately does **not** use the official Go SDK
+(`github.com/anthropics/anthropic-sdk-go`): the SDK is one very large
+generated package whose compile peaks around 1.7GB of RAM, and Forge builds
+the backend on the VPS during deploy. Pulling it in once ran the server out
+of memory and took every site on it down. Check peak build memory
+(`/usr/bin/time -l go build ./cmd/server` on macOS, `-v` on Linux, with a
+cold `GOCACHE`) before adding any large dependency.
 
 ## 1. API key
 

@@ -14,7 +14,8 @@ current listings — never "sold value", Browse only returns active listings).
 - **Frontend**: Nuxt 4 SPA (`ssr: false`), Tailwind v4, Pinia
 - **Database**: PostgreSQL 16
 - **Images**: Amazon S3 (private bucket, presigned GET URLs; MinIO locally)
-- **Vision**: Anthropic Messages API via the official Go SDK (structured outputs)
+- **Vision**: Anthropic Messages API (Claude Haiku 4.5, structured outputs),
+  plain net/http — not the Go SDK, whose compile OOMs the production VPS
 - **Pricing**: eBay Browse API (active listings), behind a `pricing.Source`
   interface so a sold-comps source can drop in later
 - **Local dev**: Docker Compose (Postgres + Mailpit + MinIO + backend + frontend)
