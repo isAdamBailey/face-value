@@ -8,9 +8,8 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
-
-	"github.com/anthropics/anthropic-sdk-go/option"
 )
 
 const cleanJSON = `{"title":"Sony TC-377 reel-to-reel tape deck","brand":"Sony","model":"TC-377","category":"audio","condition_notes":"visible wear on case","search_query":"Sony TC-377 reel-to-reel","keywords":["tape deck","reel-to-reel"],"confidence":0.82}`
@@ -24,11 +23,10 @@ func newTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 
 func newClient(t *testing.T, srv *httptest.Server) *Client {
 	t.Helper()
-	return NewClient("test-key", "test-model",
-		option.WithBaseURL(srv.URL),
-		option.WithHTTPClient(srv.Client()),
-		option.WithMaxRetries(0),
-	)
+	c := NewClient("test-key", "test-model")
+	c.baseURL = srv.URL
+	c.httpClient = srv.Client()
+	return c
 }
 
 func messageResponseBody(stopReason, text string) []byte {
@@ -70,6 +68,9 @@ func TestIdentify_Success(t *testing.T) {
 		}
 		if got := r.Header.Get("X-Api-Key"); got != "test-key" {
 			t.Errorf("X-Api-Key = %q", got)
+		}
+		if got := r.Header.Get("Anthropic-Version"); got != anthropicVersion {
+			t.Errorf("Anthropic-Version = %q", got)
 		}
 
 		var body struct {
@@ -158,17 +159,60 @@ func TestIdentify_ClampsConfidence(t *testing.T) {
 }
 
 func TestIdentificationSchema_MatchesStruct(t *testing.T) {
-	props, _ := identificationSchema["properties"].(map[string]any)
-	required, _ := identificationSchema["required"].([]any)
-	fields := reflect.TypeFor[Identification]().NumField()
-	if len(props) != fields || len(required) != fields {
-		t.Errorf("schema has %d properties / %d required, want %d each", len(props), len(required), fields)
+	props := identificationSchema["properties"].(map[string]any)
+	required := identificationSchema["required"].([]string)
+
+	typ := reflect.TypeFor[Identification]()
+	var tags []string
+	for i := range typ.NumField() {
+		tags = append(tags, strings.Split(typ.Field(i).Tag.Get("json"), ",")[0])
 	}
-	if identificationSchema["additionalProperties"] != false {
-		t.Errorf("additionalProperties = %v, want false", identificationSchema["additionalProperties"])
+
+	if !reflect.DeepEqual(required, tags) {
+		t.Errorf("required = %v, want struct JSON tags %v", required, tags)
 	}
-	if _, ok := identificationSchema["$schema"]; ok {
-		t.Error("schema still has $schema key")
+	for _, tag := range tags {
+		if _, ok := props[tag]; !ok {
+			t.Errorf("schema properties missing %q", tag)
+		}
+	}
+	if len(props) != len(tags) {
+		t.Errorf("schema has %d properties, struct has %d fields", len(props), len(tags))
+	}
+}
+
+func TestIdentify_RetriesTransientFailureOnce(t *testing.T) {
+	var calls int32
+	srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		if atomic.AddInt32(&calls, 1) == 1 {
+			writeJSON(w, 529, []byte(`{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}`))
+			return
+		}
+		writeJSON(w, http.StatusOK, messageResponseBody("end_turn", cleanJSON))
+	})
+
+	ident, _, err := newClient(t, srv).Identify(context.Background(), []byte("img"), "image/jpeg")
+	if err != nil {
+		t.Fatalf("Identify: %v", err)
+	}
+	assertIdentification(t, ident)
+	if calls != 2 {
+		t.Errorf("calls = %d, want 2", calls)
+	}
+}
+
+func TestIdentify_DoesNotRetryClientError(t *testing.T) {
+	var calls int32
+	srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		writeJSON(w, http.StatusBadRequest, []byte(`{"type":"error","error":{"type":"invalid_request_error","message":"bad"}}`))
+	})
+
+	if _, _, err := newClient(t, srv).Identify(context.Background(), []byte("img"), "image/jpeg"); err == nil {
+		t.Fatal("Identify: want error, got nil")
+	}
+	if calls != 1 {
+		t.Errorf("calls = %d, want 1 (no retry on 4xx)", calls)
 	}
 }
 
