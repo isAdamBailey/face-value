@@ -19,7 +19,9 @@ current listings — never "sold value", Browse only returns active listings).
 - **Pricing**: eBay Browse API (active listings), behind a `pricing.Source`
   interface so a sold-comps source can drop in later
 - **Local dev**: Docker Compose (Postgres + Mailpit + MinIO + backend + frontend)
-- **Production**: Forge VPS shared with the other Go apps; see `docs/DEPLOY.md`
+- **Production**: Forge VPS shared with the other Go apps
+  (`face-value.adambailey.io`, Go on port `8101`, nginx serving
+  `nuxt generate` output). A push to `main` deploys. See `docs/DEPLOY.md`
 
 Modeled on `isAdamBailey/massa` — same repo layout, same Go/Nuxt split, same
 Forge deployment shape. Auth (magic link + email allowlist) is ported from
@@ -82,7 +84,10 @@ Forge runs `scripts/forge-deploy.sh` on push. See `docs/DEPLOY.md`.
 
 ### Backend package structure (`backend/internal/`)
 
-- `auth/` — magic link issue/verify, session cookies, allowlist (ported from massa)
+- `auth/` — magic link issue/verify, session cookies, allowlist (ported from massa).
+  Nginx redirects prerendered routes to a trailing slash (`/auth/callback/`).
+  The auth middleware strips that slash before the public-route check, or the
+  magic link dumps the user on the login screen.
 - `config/` — env loading + fail-fast validation
 - `db/` — sqlc-generated code + pgx pool + migration runner
 - `email/` — smtp + ses senders (ported from massa)

@@ -2,7 +2,7 @@
 
 Production is a Forge VPS shared with the other Go apps. One Postgres cluster, one Go process per app, and nginx serving the frontend as static files. Platform rules (ports, build lock, backups) are [face-value#18](https://github.com/isAdamBailey/face-value/issues/18).
 
-The old server still runs Nuxt through PM2. That layout is [DEPLOY-old.md](./DEPLOY-old.md). Do not merge a change to `scripts/forge-deploy.sh` while the old site's push-to-deploy is on: the old deploy would build static files its PM2 process does not serve.
+The previous server's PM2 layout is [DEPLOY-old.md](./DEPLOY-old.md). That site is stopped, and its push-to-deploy stays off.
 
 **Repo:** https://github.com/isAdamBailey/face-value
 **Domain:** `face-value.adambailey.io`
@@ -48,7 +48,7 @@ Go is installed at `/usr/local/go` (1.26.x). The deploy script adds it to `PATH`
 ## 2. Forge site
 
 1. **Sites → New Site** → `face-value.adambailey.io`.
-2. Project type: a non-PHP site with zero-downtime (Static HTML, or whatever Forge currently calls a site that is not PHP). Branch `main`. Leave push-to-deploy off until the first deploy is proven.
+2. Project type: a non-PHP site with zero-downtime (Static HTML, or whatever Forge currently calls a site that is not PHP). Branch `main`. Push-to-deploy is on: a push to `main` deploys this site.
 3. Repository: `isAdamBailey/face-value`.
 4. Replace the deploy script with:
 
@@ -60,10 +60,10 @@ bash scripts/forge-deploy.sh
 
 $ACTIVATE_RELEASE()
 
-sudo supervisorctl restart daemon-<id>:*
+sudo supervisorctl restart daemon-1180520:*
 ```
 
-`<id>` comes from the daemon created in step 4. The restart stays commented out until that daemon exists, then a second deploy turns it on.
+`1180520` is the live face-value daemon.
 
 `scripts/forge-deploy.sh` takes `/tmp/node-build.lock`, builds the Go API with `GOFLAGS=-p=2`, runs migrations, and runs `npm run generate`. Nginx serves `frontend/.output/public`. There is no Node process.
 
@@ -81,6 +81,8 @@ Copy the old site's environment, then change only:
 | `PORT` | `8101` |
 | `APP_BASE_URL` | `https://face-value.adambailey.io` |
 | `COOKIE_SECURE` | `true` |
+| `EMAIL_PROVIDER` | `ses` |
+| `SMTP_PORT` | `2587`. This server cannot open 587 or 465; SES answers on 2587. |
 
 `COOKIE_SIGNING_SECRET` must stay the same as the old server or the existing user is logged out. Remove `FORGE_API_DAEMON` and any `NUXT_*` port variables. Omit `NUXT_PUBLIC_API_BASE`, `S3_ENDPOINT`, and `S3_PUBLIC_ENDPOINT`.
 
@@ -96,7 +98,7 @@ Forge → **Background processes** → Custom.
 - User: `forge`
 - Command: `bash scripts/run-api.sh`
 
-`PORT` comes from `.env`. Put the daemon id in the deploy script and deploy again. Supervisor starts it after a reboot.
+`PORT` comes from `.env`. The live daemon is `daemon-1180520`. Supervisor starts it after a reboot.
 
 ---
 
@@ -136,6 +138,8 @@ location / {
 
 `sudo nginx -t`, then reload.
 
+`try_files $uri $uri/` redirects a generated page such as `/auth/callback` to `/auth/callback/`. The auth middleware strips a trailing slash before the public-route check, so the magic link still signs the user in.
+
 ---
 
 ## 6. Check a deploy
@@ -163,6 +167,8 @@ The first is the daemon. The second is nginx proxying `/healthz`. The third is t
 | Upload 504s | `proxy_read_timeout` too low. |
 | Every upload fails, works locally | `S3_ENDPOINT` or `S3_PUBLIC_ENDPOINT` is still set. Omit both. |
 | Login redirect broken | `APP_BASE_URL` must be `https://face-value.adambailey.io`. |
+| Magic link opens the login screen | Nginx added a trailing slash and the public-route check missed `/auth/callback/`. The auth middleware strips that slash. |
+| Magic link never arrives | `SMTP_PORT` must be `2587`. Connections to 587 and 465 time out from this server. |
 | Deploy cannot find `.env` | The file belongs at the site root, `/home/forge/face-value.adambailey.io/.env`. |
 
 eBay and Anthropic credentials: [EBAY_SETUP.md](./EBAY_SETUP.md), [ANTHROPIC_SETUP.md](./ANTHROPIC_SETUP.md).
