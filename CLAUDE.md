@@ -12,14 +12,14 @@ current listings — never "sold value", Browse only returns active listings).
 - **Backend**: Go, chi router, pgx v5/pgxpool, sqlc-generated queries,
   golang-migrate with embedded migrations
 - **Frontend**: Nuxt 4 SPA (`ssr: false`), Tailwind v4, Pinia
-- **Database**: PostgreSQL 16
+- **Database**: PostgreSQL 18
 - **Images**: Amazon S3 (private bucket, presigned GET URLs; MinIO locally)
 - **Vision**: Anthropic Messages API (Claude Haiku 4.5, structured outputs),
   plain net/http — not the Go SDK, whose compile OOMs the production VPS
 - **Pricing**: eBay Browse API (active listings), behind a `pricing.Source`
   interface so a sold-comps source can drop in later
 - **Local dev**: Docker Compose (Postgres + Mailpit + MinIO + backend + frontend)
-- **Production**: Laravel Forge on a VPS — see `docs/DEPLOY.md`
+- **Production**: Forge VPS shared with the other Go apps; see `docs/DEPLOY.md`
 
 Modeled on `isAdamBailey/massa` — same repo layout, same Go/Nuxt split, same
 Forge deployment shape. Auth (magic link + email allowlist) is ported from
@@ -117,6 +117,6 @@ Prices are `NUMERIC`/`decimal.Decimal`, never `float64` or `strconv.ParseFloat`.
 
 ## Conventions
 
-The app is **Face Value**; the repo, Go module, DB role, S3 bucket, PM2
-process, and domain all use specific forms that are not interchangeable —
+The app is **Face Value**; the repo, Go module, DB role, S3 bucket, and
+domain all use specific forms that are not interchangeable —
 see `docs/DEPLOY.md` for the concrete names in use.
